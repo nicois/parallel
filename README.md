@@ -1,5 +1,7 @@
 # Parallel
 
+a change
+
 Run multiple variations of a command in parallel.
 
 ## Features
@@ -65,7 +67,7 @@ Dec  1 14:59:40.820 INF Success command="[echo the dog is called Bitzer Maloney]
 Dec  1 14:59:40.821 INF Submitted: 2; Skipped: 0; In progress: 0; Succeeded: 2; Failed: 0; Total: 2; Estimated time remaining: ?
 ```
 
-#### shuffle 
+#### shuffle
 
 In some situations, you may wish to run the jobs in a random order. If this is desired, add `--shuffle`
 
