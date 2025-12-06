@@ -1,0 +1,18 @@
+find a way to easily map the command (and input) to the output.
+use cases:
+- view the output for a specific command/input
+- search all outputs for a certain type of command/input (eg: which failure outputs of command X include the string Y?)
+
+
+complications:
+- can't store the command/input in a filename, unless it's OK to be lossy
+- not great to store in the same file as the output, as searching output may match on the command by accident
+
+options:
+- create a lossy symlink alongside the hash with the output.
+- put the command/input in the file, as the first line
+- create a sqlite database (or plain file) mapping command/input to hash
+
+current plan:
+- create a subdirectory named with the job hash, and a single file inside with a sanitised version
+  of the command+input. The MTIME of this file is used to determine when it last succeeded/failed
