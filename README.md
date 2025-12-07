@@ -35,21 +35,20 @@ Application Options:
 
 preparation:
       --csv             interpret STDIN as a CSV
-      --json-line       interpret STDIN as JSON objects, one per line
-      --skip-successes  skip jobs which have already been run successfully
-      --skip-failures   skip jobs which have already been run unsuccessfully
       --debounce=       re-run jobs outside the debounce period, even if they would normally be skipped
       --defer-reruns    give priority to jobs which have not previously been run
+      --json-line       interpret STDIN as JSON objects, one per line
+      --skip-failures   skip jobs which have already been run unsuccessfully
+      --skip-successes  skip jobs which have already been run successfully
 
 execution:
+      --abort-on-error  stop running (as though CTRL-C were pressed) if a job fails
       --concurrency=    run this many jobs in parallel (default: 10)
+      --dry-run         simulate what would be run
+      --hide-failures   do not display a message each time a job fails
+      --hide-successes  do not display a message each time a job succeeds
       --input=          send the input string (plus newline) forever as STDIN to each job
       --timeout=        cancel each job after this much time
-      --abort-on-error  stop running (as though CTRL-C were pressed) if a job fails
-      --dry-run         simulate what would be run
-      --hide-successes  do not display a message each time a job succeeds
-      --hide-failures   do not display a message each time a job fails
-
 ```
 
 ## Examples

@@ -18,20 +18,20 @@ var UserCancelled = errors.New("user-cancelled session")
 
 type PreparationOpts struct {
 	CSV            bool      `long:"csv" description:"interpret STDIN as a CSV"`
-	JsonLine       bool      `long:"json-line" description:"interpret STDIN as JSON objects, one per line"`
-	SkipSuccesses  bool      `long:"skip-successes" description:"skip jobs which have already been run successfully"`
-	SkipFailures   bool      `long:"skip-failures" description:"skip jobs which have already been run unsuccessfully"`
 	DebouncePeriod *Duration `long:"debounce" description:"re-run jobs outside the debounce period, even if they would normally be skipped"`
 	DeferReruns    bool      `long:"defer-reruns" description:"give priority to jobs which have not previously been run"`
+	JsonLine       bool      `long:"json-line" description:"interpret STDIN as JSON objects, one per line"`
+	SkipFailures   bool      `long:"skip-failures" description:"skip jobs which have already been run unsuccessfully"`
+	SkipSuccesses  bool      `long:"skip-successes" description:"skip jobs which have already been run successfully"`
 }
 type ExecutionOpts struct {
+	AbortOnError  bool      `long:"abort-on-error" description:"stop running (as though CTRL-C were pressed) if a job fails"`
 	Concurrency   int64     `long:"concurrency" description:"run this many jobs in parallel" default:"10"`
+	DryRun        bool      `long:"dry-run" description:"simulate what would be run"`
+	HideFailures  bool      `long:"hide-failures" description:"do not display a message each time a job fails"`
+	HideSuccesses bool      `long:"hide-successes" description:"do not display a message each time a job succeeds"`
 	Input         *string   `long:"input" description:"send the input string (plus newline) forever as STDIN to each job"`
 	Timeout       *Duration `long:"timeout" description:"cancel each job after this much time"`
-	AbortOnError  bool      `long:"abort-on-error" description:"stop running (as though CTRL-C were pressed) if a job fails"`
-	DryRun        bool      `long:"dry-run" description:"simulate what would be run"`
-	HideSuccesses bool      `long:"hide-successes" description:"do not display a message each time a job succeeds"`
-	HideFailures  bool      `long:"hide-failures" description:"do not display a message each time a job fails"`
 }
 type DebuggingOpts struct {
 	Debug bool `long:"debug"`
