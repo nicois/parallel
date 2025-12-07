@@ -108,7 +108,7 @@ func main() {
 			renderedCommand, err := parallel.Render(templ, input, args)
 			if err != nil {
 				logger.Info("could not render", slog.Any("error", err))
-				stats.AddFailed()
+				stats.AddFailed(0)
 				continue
 			}
 			marker := parallel.SuccessMarker(renderedCommand)
@@ -155,8 +155,7 @@ func main() {
 				logger.Debug("inserted unsorted command", slog.Any("command", renderedCommand))
 			}
 			stats.Total.Add(1)
-			stats.Queued.Add(1)
-			stats.SetDirty()
+			stats.AddQueued()
 		}
 	}()
 

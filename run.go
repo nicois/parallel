@@ -65,12 +65,12 @@ func Run(ctx context.Context, stats *Stats, interruptChannel <-chan os.Signal, o
 	go func() {
 		select {
 		case <-interruptChannel:
+			stats.Total.Add(-1 * stats.ZeroQueued())
+			stats.SetDirty()
 			logger.Warn("received cancellation signal. Waiting for current jobs to finish before exiting. Hit CTRL-C again to exit sooner")
 			if stats.ClearDirty() {
 				logger.Info(stats.String())
 			}
-			stats.Total.Add(-1 * stats.Queued.Swap(0))
-			stats.SetDirty()
 			cancel(errors.New("user-initiated shutdown"))
 		case <-ctx.Done():
 			return

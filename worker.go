@@ -85,34 +85,60 @@ type Stats struct {
 	Failed     atomic.Int64
 	Aborted    atomic.Int64
 
-	dirty atomic.Bool
-	Total atomic.Int64
+	dirty          atomic.Bool
+	Total          atomic.Int64
+	queueEmptyTime time.Time
 
 	since time.Time
-	rate  *rate
+	etc   *etc
 }
 
-func (s *Stats) AddSucceeded() {
+func (s *Stats) ZeroQueued() int64 {
+	defer s.SetDirty()
+	old := s.Queued.Swap(0)
+	if old != 0 {
+		s.queueEmptyTime = time.Now()
+	}
+	return old
+}
+
+func (s *Stats) AddQueued() {
+	if s.Queued.Add(1) == 1 {
+		s.queueEmptyTime = time.Time{}
+	}
+	s.SetDirty()
+}
+
+func (s *Stats) SubQueued() {
+	if s.Queued.Add(-1) == 0 {
+		s.queueEmptyTime = time.Now()
+	}
+	s.SetDirty()
+}
+
+func (s *Stats) AddSucceeded(d time.Duration) {
 	s.Succeeded.Add(1)
-	s.rate.Increment(1)
+	s.InProgress.Add(-1)
+	s.etc.AddSuccess(d)
 	s.SetDirty()
 }
 
-func (s *Stats) AddAborted() {
+func (s *Stats) AddAborted(d time.Duration) {
 	s.Aborted.Add(1)
-	s.rate.Increment(1)
+	s.InProgress.Add(-1)
+	s.etc.AddFailure(d)
 	s.SetDirty()
 }
 
-func (s *Stats) AddFailed() {
+func (s *Stats) AddFailed(d time.Duration) {
 	s.Failed.Add(1)
-	s.rate.Increment(1)
+	s.InProgress.Add(-1)
+	s.etc.AddFailure(d)
 	s.SetDirty()
 }
 
 func NewStats() *Stats {
-	result := Stats{rate: NewRate(100), since: time.Now()}
-	result.rate.Insert(0)
+	result := Stats{since: time.Now(), etc: NewEtc()}
 	return &result
 }
 
@@ -130,11 +156,8 @@ func (s *Stats) ClearDirty() bool {
 
 func (s *Stats) String() string {
 	etaString := ""
-	if s.InProgress.Load() > 0 && s.rate != nil {
-		eta, err := s.rate.ETA(4, float64(s.Total.Load()))
-		if err == nil {
-			etaString = time.Until(eta).Round(time.Second).String()
-		}
+	if d := s.etc.Estimate(s); d > time.Second {
+		etaString = d.Round(time.Second).String()
 	}
 	if etaString == "" {
 		return fmt.Sprintf("Queued: %v; Skipped: %v; In progress: %v; Succeeded: %v; Failed: %v; Aborted: %v; Total: %v; Elapsed time: %v",
@@ -213,9 +236,9 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 			cmd.Stdin = Yes{Line: []byte(fmt.Sprintf("%v\n", command.input))}
 		}
 
-		stats.Queued.Add(-1)
+		timer := time.Now()
 		stats.InProgress.Add(1)
-		stats.SetDirty()
+		stats.SubQueued()
 		var err error
 		var output []byte
 		if opts.DryRun {
@@ -225,11 +248,9 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 			output, err = cmd.CombinedOutput()
 		}
 		cmd = nil
+		elapsed := time.Since(timer)
 		if err == nil {
-			stats.Succeeded.Add(1)
-			stats.rate.Increment(1)
-			stats.InProgress.Add(-1)
-			stats.SetDirty()
+			stats.AddSucceeded(elapsed)
 			if !opts.HideSuccesses {
 				logger.Info("Success", slog.Any("command", command), slog.String("combined output", string(output)))
 			}
@@ -243,12 +264,11 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 			// or because the job actually failed? Remember that a timeout counts as a real failure
 			realFailure := subCtx.Err() == nil || errors.Is(subCtx.Err(), context.DeadlineExceeded)
 			if realFailure {
-				stats.AddFailed()
+				stats.AddFailed(elapsed)
 			} else {
 				logger.Warn("job was aborted due to context cancellation", slog.Any("command", command))
-				stats.AddAborted()
+				stats.AddAborted(elapsed)
 			}
-			stats.InProgress.Add(-1)
 			if !opts.HideFailures {
 				logger.Warn("Failure", slog.Any("command", command), slog.String("combined output", string(output)), slog.Any("error", err))
 			}
