@@ -33,6 +33,7 @@ jobs:
           distribution: goreleaser
           # 'latest', 'nightly', or a semver
           version: "~> v2"
+          workdir: "parallel"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
