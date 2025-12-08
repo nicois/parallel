@@ -196,7 +196,7 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 						err = process.Kill()
 					} else if sig == syscall.SIGQUIT {
 						logger.Debug("sent kill signal to all subprocesses too", slog.Any("signal", sig), slog.Any("process", command), slog.Any("error", err))
-						syscall.Kill(-process.Pid, syscall.SIGKILL)
+						killProcess(-process.Pid)
 					} else {
 						err = process.Signal(sig)
 						logger.Debug("sent signal", slog.Any("signal", sig), slog.Any("process", command), slog.Any("error", err))
@@ -230,7 +230,7 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 		cmd = exec.CommandContext(subCtx, command.command[0], command.command[1:]...)
 
 		// launch as new process group so that signals (ex: SIGINT) are not sent also the the child process
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		createNewProcessGroup(cmd)
 
 		if command.input != "" {
 			cmd.Stdin = Yes{Line: []byte(fmt.Sprintf("%v\n", command.input))}
