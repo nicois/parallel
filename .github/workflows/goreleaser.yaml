@@ -34,6 +34,6 @@ jobs:
           # 'latest', 'nightly', or a semver
           version: "~> v2"
           workdir: "parallel"
-          args: release --clean
+          args: release --clean --skip-build
         env:
           GITHUB_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
