@@ -156,8 +156,9 @@ func (s *Stats) ClearDirty() bool {
 
 func (s *Stats) String() string {
 	etaString := ""
-	if d := s.etc.Estimate(s); d > time.Second {
-		etaString = d.Round(time.Second).String()
+	d := s.etc.Estimate(s)
+	if d > time.Second {
+		etaString = FriendlyDuration(d)
 	}
 	if etaString == "" {
 		return fmt.Sprintf("Queued: %v; Skipped: %v; In progress: %v; Succeeded: %v; Failed: %v; Aborted: %v; Total: %v; Elapsed time: %v",

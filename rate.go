@@ -1,6 +1,7 @@
 package parallel
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
@@ -9,6 +10,28 @@ type etc struct {
 	successes []time.Duration
 	failures  []time.Duration
 	mutex     *sync.RWMutex
+}
+
+func FriendlyDuration(d time.Duration) string {
+	if d < time.Minute*2 {
+		return fmt.Sprintf("%.0f seconds", d.Seconds())
+	}
+	if d < time.Minute*10 {
+		return fmt.Sprintf("%.1f minutes", d.Seconds()/60)
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%.0f minutes", d.Seconds()/60)
+	}
+	if d < time.Hour*4 {
+		return fmt.Sprintf("%.1f hours", d.Seconds()/3600)
+	}
+	if d < time.Hour*60 {
+		return fmt.Sprintf("%.0f hours", d.Seconds()/3600)
+	}
+	if d < time.Hour*24*1000 {
+		return fmt.Sprintf("%.0f days", d.Seconds()/3600/24)
+	}
+	return fmt.Sprintf("%.1f years", d.Seconds()/3600/365.25)
 }
 
 func (e *etc) Estimate(stats *Stats) time.Duration {
