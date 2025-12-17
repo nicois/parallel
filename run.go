@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/btree"
+	"golang.org/x/time/rate"
 )
 
 type UnsortedCommand struct {
@@ -20,7 +21,7 @@ type UnsortedCommand struct {
 	index     uint64
 }
 
-func Run(ctx context.Context, stats *Stats, interruptChannel <-chan os.Signal, opts Opts, commands <-chan RenderedCommand) error {
+func Run(ctx context.Context, stats *Stats, interruptChannel <-chan os.Signal, opts Opts, commands <-chan RenderedCommand, limiter *rate.Limiter) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 
@@ -59,7 +60,6 @@ func Run(ctx context.Context, stats *Stats, interruptChannel <-chan os.Signal, o
 	}()
 
 	signallers := make([]chan os.Signal, 0, opts.Concurrency)
-
 	// spawn the workers
 	wg := &sync.WaitGroup{}
 	for range opts.Concurrency {
@@ -68,7 +68,7 @@ func Run(ctx context.Context, stats *Stats, interruptChannel <-chan os.Signal, o
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			Worker(ctx, opts, signaller, cancel, commands, stats)
+			Worker(ctx, opts, signaller, cancel, commands, stats, limiter)
 		}()
 	}
 
@@ -147,8 +147,21 @@ func PrepareAndRun(ctx context.Context, reader io.Reader, opts Opts, commandLine
 		os.Exit(1)
 	}
 
+	var limiter *rate.Limiter
+	var minimumDuration time.Duration
+	if opts.RateLimit != nil {
+		minimumDuration = *opts.RateLimit
+		if opts.RateLimitBucketSize < 1 {
+			opts.RateLimitBucketSize = 1
+		}
+		if *opts.RateLimit < time.Millisecond {
+			return errors.New("rate limit must be at least a millisecond if defined")
+		}
+		limiter = rate.NewLimiter(rate.Every(*opts.RateLimit), opts.RateLimitBucketSize)
+	}
+
 	// initialise the stats collector
-	stats := NewStats()
+	stats := NewStats(opts.Concurrency, minimumDuration)
 
 	// this channel is where we insert jobs we want to do,
 	presortedCommands := make(chan UnsortedCommand, 10)
@@ -219,9 +232,12 @@ func PrepareAndRun(ctx context.Context, reader io.Reader, opts Opts, commandLine
 	go sorter(ctx, presortedCommands, postSortedCommands)
 
 	// call the main entrypoint, now everything is in place
-	err = Run(ctx, stats, interruptChannel, opts, postSortedCommands)
+	err = Run(ctx, stats, interruptChannel, opts, postSortedCommands, limiter)
 	// provide a summary before exiting
 	logger.Info(stats.String())
+	if errors.Is(err, ErrNoMoreJobs) {
+		return nil
+	}
 	return err
 }
 

@@ -58,7 +58,7 @@ func main() {
 
 	// show exit reasons
 	if err != nil {
-		if err != parallel.UserCancelled {
+		if err != parallel.ErrUserCancelled {
 			logger.Error(fmt.Sprintf("%v", err))
 		}
 		os.Exit(1)

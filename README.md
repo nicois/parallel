@@ -34,21 +34,23 @@ Application Options:
       --debug
 
 preparation:
-      --csv             interpret STDIN as a CSV
-      --debounce=       re-run jobs outside the debounce period, even if they would normally be skipped
-      --defer-reruns    give priority to jobs which have not previously been run
-      --json-line       interpret STDIN as JSON objects, one per line
-      --skip-failures   skip jobs which have already been run unsuccessfully
-      --skip-successes  skip jobs which have already been run successfully
+      --csv                     interpret STDIN as a CSV
+      --debounce=               re-run jobs outside the debounce period, even if they would normally be skipped
+      --defer-reruns            give priority to jobs which have not previously been run
+      --json-line               interpret STDIN as JSON objects, one per line
+      --skip-failures           skip jobs which have already been run unsuccessfully
+      --skip-successes          skip jobs which have already been run successfully
 
 execution:
-      --abort-on-error  stop running (as though CTRL-C were pressed) if a job fails
-      --concurrency=    run this many jobs in parallel (default: 10)
-      --dry-run         simulate what would be run
-      --hide-failures   do not display a message each time a job fails
-      --hide-successes  do not display a message each time a job succeeds
-      --input=          send the input string (plus newline) forever as STDIN to each job
-      --timeout=        cancel each job after this much time
+      --abort-on-error          stop running (as though CTRL-C were pressed) if a job fails
+      --concurrency=            run this many jobs in parallel (default: 10)
+      --dry-run                 simulate what would be run
+      --hide-failures           do not display a message each time a job fails
+      --hide-successes          do not display a message each time a job succeeds
+      --input=                  send the input string (plus newline) forever as STDIN to each job
+      --timeout=                cancel each job after this much time
+      --rate-limit=             prevent jobs starting more than this often
+      --rate-limit-bucket-size= allow a burst of up to this many jobs before enforcing the rate limit
 ```
 
 ## Examples
@@ -219,6 +221,22 @@ Dec  4 21:51:17.386 INF Success command="{command:[nc -vz 192.168.4.53 443] inpu
 Dec  4 21:51:20.001 INF Queued: 142; Skipped: 0; In progress: 100; Succeeded: 1; Failed: 11; Total: 254; Estimated time remaining: 11s
 Dec  4 21:51:23.681 INF Success command="{command:[nc -vz 192.168.4.222 443] input:}" "combined output"="Ncat: Version 7.92 ( https://nmap.org/ncat )\nNcat: Connected to 192.168.4.222:443.\nNcat: 0 bytes sent, 0 bytes received in 0.14 seconds.\n"
 Dec  4 21:51:26.735 INF Queued: 0; Skipped: 0; In progress: 0; Succeeded: 2; Failed: 252; Total: 254; Estimated time remaining: 0s
+```
+
+### Rate limiting
+
+Sometimes, despite wanting to run jobs concurrently, you want to place a limit on the maximum rate jobs can be started at. For example, you might want to run 4 jobs at a time, but wait 2 seconds between them:
+
+```bash
+parallel --rate-limit 2s --concurrency 4
+```
+
+If bursting is acceptable, `--rate-limit-bucket-size` allows this.
+
+If you want to issue some API commands, ensuring no more than 1 is started per second, with a burst of 3 (but allowing 10 to run concurrently):
+
+```bash
+parallel --rate-limit 1s --rate-limit-bucket-size 3
 ```
 
 ### Dry-run

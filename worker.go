@@ -12,9 +12,14 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
-var UserCancelled = errors.New("user-cancelled session")
+var (
+	ErrUserCancelled = errors.New("user-cancelled session")
+	ErrNoMoreJobs    = errors.New("no more jobs")
+)
 
 type PreparationOpts struct {
 	CSV            bool      `long:"csv" description:"interpret STDIN as a CSV"`
@@ -25,13 +30,15 @@ type PreparationOpts struct {
 	SkipSuccesses  bool      `long:"skip-successes" description:"skip jobs which have already been run successfully"`
 }
 type ExecutionOpts struct {
-	AbortOnError  bool      `long:"abort-on-error" description:"stop running (as though CTRL-C were pressed) if a job fails"`
-	Concurrency   int64     `long:"concurrency" description:"run this many jobs in parallel" default:"10"`
-	DryRun        bool      `long:"dry-run" description:"simulate what would be run"`
-	HideFailures  bool      `long:"hide-failures" description:"do not display a message each time a job fails"`
-	HideSuccesses bool      `long:"hide-successes" description:"do not display a message each time a job succeeds"`
-	Input         *string   `long:"input" description:"send the input string (plus newline) forever as STDIN to each job"`
-	Timeout       *Duration `long:"timeout" description:"cancel each job after this much time"`
+	AbortOnError        bool           `long:"abort-on-error" description:"stop running (as though CTRL-C were pressed) if a job fails"`
+	Concurrency         int            `long:"concurrency" description:"run this many jobs in parallel" default:"10"`
+	DryRun              bool           `long:"dry-run" description:"simulate what would be run"`
+	HideFailures        bool           `long:"hide-failures" description:"do not display a message each time a job fails"`
+	HideSuccesses       bool           `long:"hide-successes" description:"do not display a message each time a job succeeds"`
+	Input               *string        `long:"input" description:"send the input string (plus newline) forever as STDIN to each job"`
+	Timeout             *Duration      `long:"timeout" description:"cancel each job after this much time"`
+	RateLimit           *time.Duration `long:"rate-limit" description:"prevent jobs starting more than this often"`
+	RateLimitBucketSize int            `long:"rate-limit-bucket-size" description:"allow a burst of up to this many jobs before enforcing the rate limit"`
 }
 type DebuggingOpts struct {
 	Debug bool `long:"debug"`
@@ -137,8 +144,8 @@ func (s *Stats) AddFailed(d time.Duration) {
 	s.SetDirty()
 }
 
-func NewStats() *Stats {
-	result := Stats{since: time.Now(), etc: NewEtc()}
+func NewStats(concurrency int, minimumDuration time.Duration) *Stats {
+	result := Stats{since: time.Now(), etc: NewEtc(concurrency, minimumDuration)}
 	return &result
 }
 
@@ -183,7 +190,7 @@ func (s *Stats) String() string {
 	}
 }
 
-func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel context.CancelCauseFunc, ch <-chan RenderedCommand, stats *Stats) {
+func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel context.CancelCauseFunc, ch <-chan RenderedCommand, stats *Stats, limiter *rate.Limiter) {
 	var ok bool
 	var command RenderedCommand
 	var cmd *exec.Cmd
@@ -194,10 +201,10 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 					var err error
 					if sig == syscall.SIGKILL {
 						logger.Debug("sent kill signal", slog.Any("signal", sig), slog.Any("process", command), slog.Any("error", err))
-						err = process.Kill()
+						_ = process.Kill()
 					} else if sig == syscall.SIGQUIT {
 						logger.Debug("sent kill signal to all subprocesses too", slog.Any("signal", sig), slog.Any("process", command), slog.Any("error", err))
-						killProcess(-process.Pid)
+						_ = killProcess(-process.Pid)
 					} else {
 						err = process.Signal(sig)
 						logger.Debug("sent signal", slog.Any("signal", sig), slog.Any("process", command), slog.Any("error", err))
@@ -207,24 +214,34 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 		}
 	}()
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
+		if limiter == nil {
+			// exit immediately if the context is cancelled
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+		} else {
+			// exit immediately if the context is cancelled while waiting for a slot
+			if err := limiter.Wait(ctx); err != nil {
+				return
+			}
 		}
+
 		select {
 		case <-ctx.Done():
 			return
 		case command, ok = <-ch:
 			if !ok {
 				// channel is closed
+				cancel(ErrNoMoreJobs)
 				return
 			}
 		}
+		timer := time.Now()
 		logger.Debug("about to execute", slog.Any("command", command))
-		subCtx := ctx
 		var subCancel context.CancelFunc
-		subCtx = context.Background()
+		subCtx := context.Background()
 		if opts.Timeout != nil {
 			subCtx, subCancel = context.WithTimeout(subCtx, time.Duration(*opts.Timeout))
 		}
@@ -237,13 +254,12 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 			cmd.Stdin = Yes{Line: []byte(fmt.Sprintf("%v\n", command.input))}
 		}
 
-		timer := time.Now()
 		stats.InProgress.Add(1)
 		stats.SubQueued()
 		var err error
 		var output []byte
 		if opts.DryRun {
-			_ = Sleep(ctx, time.Second)
+			err = Sleep(ctx, time.Second)
 			output = []byte("(dry run)")
 		} else {
 			output, err = cmd.CombinedOutput()

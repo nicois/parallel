@@ -7,9 +7,11 @@ import (
 )
 
 type etc struct {
-	successes []time.Duration
-	failures  []time.Duration
-	mutex     *sync.RWMutex
+	concurrency     int
+	minimumDuration time.Duration
+	successes       []time.Duration
+	failures        []time.Duration
+	mutex           *sync.RWMutex
 }
 
 func FriendlyDuration(d time.Duration) string {
@@ -78,14 +80,17 @@ func (e *etc) Estimate(stats *Stats) time.Duration {
 	if stats.queueEmptyTime.IsZero() {
 		// estimate queue empty time: number of queued items * weighted job run time
 
-		qet := time.Duration(wDurationSeconds * float64(stats.Queued.Load()) / float64(stats.InProgress.Load()) * float64(time.Second))
+		qet := time.Duration(wDurationSeconds * float64(stats.Queued.Load()) / float64(e.concurrency) * float64(time.Second))
+		if lowerLimit := time.Duration(stats.Queued.Load()) * e.minimumDuration; lowerLimit > qet {
+			qet = lowerLimit
+		}
 		return qet + wMaxDuration
 	}
 	return wMaxDuration - time.Since(stats.queueEmptyTime)
 }
 
-func NewEtc() *etc {
-	return &etc{successes: make([]time.Duration, 0, 100), failures: make([]time.Duration, 0, 100), mutex: new(sync.RWMutex)}
+func NewEtc(concurrency int, minimumDuration time.Duration) *etc {
+	return &etc{successes: make([]time.Duration, 0, 100), failures: make([]time.Duration, 0, 100), mutex: new(sync.RWMutex), concurrency: concurrency, minimumDuration: minimumDuration}
 }
 
 func (e *etc) AddSuccess(d time.Duration) {
