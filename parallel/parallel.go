@@ -57,10 +57,15 @@ func main() {
 	// prepare for processing STDIN
 	reader := bufio.NewReader(os.Stdin)
 	var cache parallel.Cache
+	ctx := context.Background()
 	if opts.CacheLocation == nil {
 		cache = parallel.NewFileCache(filepath.Join(parallel.Must(os.UserHomeDir()), ".cache", "parallel"))
 	} else if strings.HasPrefix(*opts.CacheLocation, "s3://") {
-		panic("unimplmented")
+		cache, err = parallel.NewS3Cache(ctx, *opts.CacheLocation)
+		if err != nil {
+			logger.Error("cannot initialise S3 cache", slog.Any("error", err))
+			os.Exit(1)
+		}
 	} else {
 		cache = parallel.NewFileCache(*opts.CacheLocation)
 	}

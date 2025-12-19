@@ -23,7 +23,7 @@ type fileCache struct {
 	root string
 }
 
-func NewFileCache(root string) Cache {
+func NewFileCache(root string) *fileCache {
 	result := &fileCache{root: root}
 	Must0(os.MkdirAll(filepath.Join(root, "success"), 0700))
 	Must0(os.MkdirAll(filepath.Join(root, "failure"), 0700))

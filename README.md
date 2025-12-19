@@ -35,7 +35,7 @@ Application Options:
 
 preparation:
       --csv                     interpret STDIN as a CSV
-      --cache-location=         path to record successes and failures
+      --cache-location=         path (or S3 URI) to record successes and failures
       --debounce=               re-run jobs outside the debounce period, even if they would normally be skipped
       --defer-reruns            give priority to jobs which have not previously been run
       --json-line               interpret STDIN as JSON objects, one per line
@@ -337,3 +337,11 @@ Dec  4 11:42:38.289 INF Submitted: 1; Skipped: 0; In progress: 0; Succeeded: 1; 
 
 By default, `~/.cache/parallel` is used to store the STDOUT/STDERR of each job, along with whether it succeeded.
 An alternative location can be provided using `--cache-location`.
+
+#### S3 caching
+
+It is possible to use a S3 bucket to cache the results: `--cache-location s3://my-bucket/my-prefix`
+
+As long as you have valid AWS environment variables/credentials, this should "just work". You may also need to ensure that the `AWS_REGION` environment variable is set correctly.
+Note that metadata (filename, last-modified time) for all assets in the S3 bucket under the nominated prefix will be read each time the application is run. For more than a few thousand records, this may take a few seconds.
+If an error is detected while writing to the S3 bucket, this will stop subsequent jobs from running. The most likely cause is your AWS credentials have expired.

@@ -22,7 +22,7 @@ var (
 
 type PreparationOpts struct {
 	CSV            bool      `long:"csv" description:"interpret STDIN as a CSV"`
-	CacheLocation  *string   `long:"cache-location" description:"path to record successes and failures"`
+	CacheLocation  *string   `long:"cache-location" description:"path (or S3 URI) to record successes and failures"`
 	DebouncePeriod *Duration `long:"debounce" description:"re-run jobs outside the debounce period, even if they would normally be skipped"`
 	DeferReruns    bool      `long:"defer-reruns" description:"give priority to jobs which have not previously been run"`
 	JsonLine       bool      `long:"json-line" description:"interpret STDIN as JSON objects, one per line"`
@@ -48,19 +48,6 @@ type Opts struct {
 	ExecutionOpts   `group:"execution"`
 	DebuggingOpts
 }
-
-/*
-var (
-	CacheDir   = filepath.Join(Must(os.UserHomeDir()), ".cache", "parallel")
-	SuccessDir = filepath.Join(Must(os.UserHomeDir()), ".cache", "parallel", "success")
-	FailureDir = filepath.Join(Must(os.UserHomeDir()), ".cache", "parallel", "failure")
-)
-
-func init() {
-	Must0(os.MkdirAll(SuccessDir, 0700))
-	Must0(os.MkdirAll(FailureDir, 0700))
-}
-*/
 
 func Marker(cmd RenderedCommand) string {
 	h := sha256.New()
@@ -223,8 +210,6 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 			return
 		case command, ok = <-ch:
 			if !ok {
-				// channel is closed
-				cancel(ErrNoMoreJobs)
 				return
 			}
 		}
