@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/jessevdk/go-flags"
@@ -54,7 +56,15 @@ func main() {
 
 	// prepare for processing STDIN
 	reader := bufio.NewReader(os.Stdin)
-	err = parallel.PrepareAndRun(context.Background(), reader, opts, commandLine, interruptChannel)
+	var cache parallel.Cache
+	if opts.CacheLocation == nil {
+		cache = parallel.NewFileCache(filepath.Join(parallel.Must(os.UserHomeDir()), ".cache", "parallel"))
+	} else if strings.HasPrefix(*opts.CacheLocation, "s3://") {
+		panic("unimplmented")
+	} else {
+		cache = parallel.NewFileCache(*opts.CacheLocation)
+	}
+	err = parallel.PrepareAndRun(context.Background(), reader, opts, commandLine, cache, interruptChannel)
 
 	// show exit reasons
 	if err != nil {

@@ -21,7 +21,7 @@ type UnsortedCommand struct {
 	index     uint64
 }
 
-func Run(ctx context.Context, stats *Stats, interruptChannel <-chan os.Signal, opts Opts, commands <-chan RenderedCommand, limiter *rate.Limiter) error {
+func Run(ctx context.Context, stats *Stats, interruptChannel <-chan os.Signal, opts Opts, cache Cache, commands <-chan RenderedCommand, limiter *rate.Limiter) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 
@@ -68,7 +68,7 @@ func Run(ctx context.Context, stats *Stats, interruptChannel <-chan os.Signal, o
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			Worker(ctx, opts, signaller, cancel, commands, stats, limiter)
+			Worker(ctx, opts, signaller, cancel, commands, cache, stats, limiter)
 		}()
 	}
 
@@ -120,7 +120,7 @@ func Run(ctx context.Context, stats *Stats, interruptChannel <-chan os.Signal, o
 	return context.Cause(ctx)
 }
 
-func PrepareAndRun(ctx context.Context, reader io.Reader, opts Opts, commandLine []string, interruptChannel <-chan os.Signal) error {
+func PrepareAndRun(ctx context.Context, reader io.Reader, opts Opts, commandLine []string, cache Cache, interruptChannel <-chan os.Signal) error {
 	ctx, cancelCause := context.WithCancelCause(ctx)
 	defer cancelCause(nil)
 	var generator Generator
@@ -181,14 +181,14 @@ func PrepareAndRun(ctx context.Context, reader io.Reader, opts Opts, commandLine
 				stats.AddFailed(0)
 				continue
 			}
-			marker := SuccessMarker(renderedCommand)
-			if stat, err := os.Stat(marker); err == nil {
-				if stat.ModTime().After(mostRecentlyLastRun) {
-					mostRecentlyLastRun = stat.ModTime()
+			marker := Marker(renderedCommand)
+			if mtime, err := cache.SuccessModTime(ctx, marker); err == nil {
+				if mtime.After(mostRecentlyLastRun) {
+					mostRecentlyLastRun = mtime
 				}
 				if opts.SkipSuccesses {
 					// skip jobs previously run successfully, unless outside of the debounce period
-					if period := time.Since(stat.ModTime()); opts.DebouncePeriod != nil && period > time.Duration(*opts.DebouncePeriod) {
+					if period := time.Since(mtime); opts.DebouncePeriod != nil && period > time.Duration(*opts.DebouncePeriod) {
 						logger.Debug("already successfully executed, but outside the debounce period", slog.Any("command", renderedCommand))
 					} else {
 						logger.Debug("already successfully executed", "command", renderedCommand, slog.String("cached combined output file", marker))
@@ -197,14 +197,13 @@ func PrepareAndRun(ctx context.Context, reader io.Reader, opts Opts, commandLine
 					}
 				}
 			}
-			marker = FailureMarker(renderedCommand)
-			if stat, err := os.Stat(marker); err == nil {
-				if stat.ModTime().After(mostRecentlyLastRun) {
-					mostRecentlyLastRun = stat.ModTime()
+			if mtime, err := cache.FailureModTime(ctx, marker); err == nil {
+				if mtime.After(mostRecentlyLastRun) {
+					mostRecentlyLastRun = mtime
 				}
 				if opts.SkipFailures {
 					// skip jobs previously run unsuccessfully, unless outside of the debounce period
-					if period := time.Since(stat.ModTime()); opts.DebouncePeriod != nil && period > time.Duration(*opts.DebouncePeriod) {
+					if period := time.Since(mtime); opts.DebouncePeriod != nil && period > time.Duration(*opts.DebouncePeriod) {
 						logger.Debug("already unsuccessfully executed, but outside the debounce period", slog.Any("command", renderedCommand))
 					} else {
 						logger.Debug("already unsuccessfully executed", "command", renderedCommand, slog.String("cached combined output file", marker))
@@ -232,7 +231,7 @@ func PrepareAndRun(ctx context.Context, reader io.Reader, opts Opts, commandLine
 	go sorter(ctx, presortedCommands, postSortedCommands)
 
 	// call the main entrypoint, now everything is in place
-	err = Run(ctx, stats, interruptChannel, opts, postSortedCommands, limiter)
+	err = Run(ctx, stats, interruptChannel, opts, cache, postSortedCommands, limiter)
 	// provide a summary before exiting
 	logger.Info(stats.String())
 	if errors.Is(err, ErrNoMoreJobs) {

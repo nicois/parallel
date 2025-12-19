@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -23,6 +22,7 @@ var (
 
 type PreparationOpts struct {
 	CSV            bool      `long:"csv" description:"interpret STDIN as a CSV"`
+	CacheLocation  *string   `long:"cache-location" description:"path to record successes and failures"`
 	DebouncePeriod *Duration `long:"debounce" description:"re-run jobs outside the debounce period, even if they would normally be skipped"`
 	DeferReruns    bool      `long:"defer-reruns" description:"give priority to jobs which have not previously been run"`
 	JsonLine       bool      `long:"json-line" description:"interpret STDIN as JSON objects, one per line"`
@@ -36,9 +36,9 @@ type ExecutionOpts struct {
 	HideFailures        bool           `long:"hide-failures" description:"do not display a message each time a job fails"`
 	HideSuccesses       bool           `long:"hide-successes" description:"do not display a message each time a job succeeds"`
 	Input               *string        `long:"input" description:"send the input string (plus newline) forever as STDIN to each job"`
-	Timeout             *Duration      `long:"timeout" description:"cancel each job after this much time"`
 	RateLimit           *time.Duration `long:"rate-limit" description:"prevent jobs starting more than this often"`
 	RateLimitBucketSize int            `long:"rate-limit-bucket-size" description:"allow a burst of up to this many jobs before enforcing the rate limit"`
+	Timeout             *Duration      `long:"timeout" description:"cancel each job after this much time"`
 }
 type DebuggingOpts struct {
 	Debug bool `long:"debug"`
@@ -49,6 +49,7 @@ type Opts struct {
 	DebuggingOpts
 }
 
+/*
 var (
 	CacheDir   = filepath.Join(Must(os.UserHomeDir()), ".cache", "parallel")
 	SuccessDir = filepath.Join(Must(os.UserHomeDir()), ".cache", "parallel", "success")
@@ -59,8 +60,9 @@ func init() {
 	Must0(os.MkdirAll(SuccessDir, 0700))
 	Must0(os.MkdirAll(FailureDir, 0700))
 }
+*/
 
-func SuccessMarker(cmd RenderedCommand) string {
+func Marker(cmd RenderedCommand) string {
 	h := sha256.New()
 	for _, arg := range cmd.command {
 		h.Write([]byte(arg))
@@ -69,19 +71,7 @@ func SuccessMarker(cmd RenderedCommand) string {
 	if cmd.input != "" {
 		h.Write([]byte(cmd.input))
 	}
-	return filepath.Join(SuccessDir, fmt.Sprintf("parallel-marker-%x", h.Sum(nil)))
-}
-
-func FailureMarker(cmd RenderedCommand) string {
-	h := sha256.New()
-	for _, arg := range cmd.command {
-		h.Write([]byte(arg))
-		h.Write([]byte("\t"))
-	}
-	if cmd.input != "" {
-		h.Write([]byte(cmd.input))
-	}
-	return filepath.Join(FailureDir, fmt.Sprintf("parallel-marker-%x", h.Sum(nil)))
+	return fmt.Sprintf("parallel-marker-%x", h.Sum(nil))
 }
 
 type Stats struct {
@@ -190,7 +180,7 @@ func (s *Stats) String() string {
 	}
 }
 
-func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel context.CancelCauseFunc, ch <-chan RenderedCommand, stats *Stats, limiter *rate.Limiter) {
+func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel context.CancelCauseFunc, ch <-chan RenderedCommand, cache Cache, stats *Stats, limiter *rate.Limiter) {
 	var ok bool
 	var command RenderedCommand
 	var cmd *exec.Cmd
@@ -253,6 +243,7 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 		if command.input != "" {
 			cmd.Stdin = Yes{Line: []byte(fmt.Sprintf("%v\n", command.input))}
 		}
+		marker := Marker(command)
 
 		stats.InProgress.Add(1)
 		stats.SubQueued()
@@ -272,7 +263,7 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 				logger.Info("Success", slog.Any("command", command), slog.String("combined output", string(output)))
 			}
 			if !opts.DryRun {
-				if err = os.WriteFile(SuccessMarker(command), []byte(output), 0644); err != nil {
+				if err = cache.WriteSuccess(ctx, marker, []byte(output)); err != nil {
 					logger.Error("could not mark command as successful", slog.Any("error", err))
 				}
 			}
@@ -291,7 +282,7 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 			}
 			// store the fact this failed (unless it was due to context cancellation)
 			if !opts.DryRun && realFailure {
-				if err = os.WriteFile(FailureMarker(command), []byte(output), 0644); err != nil {
+				if err = cache.WriteFailure(ctx, marker, []byte(output)); err != nil {
 					logger.Error("could not mark command as failed", slog.Any("error", err))
 				}
 			}

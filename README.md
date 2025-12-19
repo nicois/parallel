@@ -35,6 +35,7 @@ Application Options:
 
 preparation:
       --csv                     interpret STDIN as a CSV
+      --cache-location=         path to record successes and failures
       --debounce=               re-run jobs outside the debounce period, even if they would normally be skipped
       --defer-reruns            give priority to jobs which have not previously been run
       --json-line               interpret STDIN as JSON objects, one per line
@@ -48,9 +49,9 @@ execution:
       --hide-failures           do not display a message each time a job fails
       --hide-successes          do not display a message each time a job succeeds
       --input=                  send the input string (plus newline) forever as STDIN to each job
-      --timeout=                cancel each job after this much time
       --rate-limit=             prevent jobs starting more than this often
       --rate-limit-bucket-size= allow a burst of up to this many jobs before enforcing the rate limit
+      --timeout=                cancel each job after this much time
 ```
 
 ## Examples
@@ -332,10 +333,7 @@ Dec  4 11:42:38.289 INF Success command="{command:[/bin/bash -c read emotion; ec
 Dec  4 11:42:38.289 INF Submitted: 1; Skipped: 0; In progress: 0; Succeeded: 1; Failed: 0; Total: 1; Elapsed time: 0s
 ```
 
-## Notes
+### Caching results
 
-- if no command is provided, a placeholder command is used which simply echoes the inputs. This is mostly
-  intended for experimentation purposes.
-- each time a variation completes successfully (ie: with a zero exit code), a file is created in ~/.cache/parallel/success which
-  contains the STDOUT/STDERR. Similarly, failed output is stored in ~/.cache/parallel/failure. The MTIME of this file is used by the debouncer to determine whether it is appropriate to rerun the variation. These files will never be cleaned up by `parallel`. If desired, something like this can be run to remove cache files older than a week: `find ~/.cache/parallel/ -type f -mtime +1 -delete`
-- jobs will be processed as soon as they are received, without waiting for STDIN to be closed.
+By default, `~/.cache/parallel` is used to store the STDOUT/STDERR of each job, along with whether it succeeded.
+An alternative location can be provided using `--cache-location`.
