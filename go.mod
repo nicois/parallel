@@ -1,6 +1,6 @@
 module github.com/nicois/parallel
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.6
@@ -8,7 +8,7 @@ require (
 	github.com/google/btree v1.1.3
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/lmittmann/tint v1.1.2
-	github.com/nicois/bigset v0.0.0-20241226014513-ad37614079ec
+	github.com/nicois/bigset v0.0.0-20251220071913-937d42d5f24e
 	golang.org/x/time v0.14.0
 )
 
@@ -30,9 +30,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.12 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.5 // indirect
 	github.com/aws/smithy-go v1.24.0 // indirect
-	github.com/mattn/go-sqlite3 v1.14.22 // indirect
-	github.com/nicois/fastdb v0.0.0-20240511060213-776b25c4dbb9 // indirect
-	go.uber.org/multierr v1.10.0 // indirect
-	go.uber.org/zap v1.27.0 // indirect
+	github.com/mattn/go-sqlite3 v1.14.32 // indirect
+	github.com/nicois/fastdb v0.0.0-20250919114344-7a2afc19a22e // indirect
 	golang.org/x/sys v0.21.0 // indirect
 )
