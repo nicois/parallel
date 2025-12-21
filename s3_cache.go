@@ -55,8 +55,15 @@ func NewS3Cache(ctx context.Context, uri string) (Cache, error) {
 }
 
 func (f *s3Cache) loadMtimes(ctx context.Context) error {
+	startTime := time.Now()
+	nextReportTime := startTime.Add(time.Second)
 	paginator := s3.NewListObjectsV2Paginator(f.client, &s3.ListObjectsV2Input{Bucket: &(f.bucket)})
+	var counter int64
 	for paginator.HasMorePages() {
+		if time.Now().After(nextReportTime) {
+			logger.Info("still scanning the s3 bucket", slog.String("bucket", f.bucket), slog.String("prefix", f.prefix), slog.Int64("retrieved so far", counter))
+			nextReportTime = nextReportTime.Add(2 * time.Second)
+		}
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
 			return err
@@ -65,9 +72,10 @@ func (f *s3Cache) loadMtimes(ctx context.Context) error {
 			if _, err := f.mtimes.Add(ctx, "default", MTime{Path: *(obj.Key), Mtime: *(obj.LastModified)}); err != nil {
 				return err
 			}
+			counter++
 		}
 	}
-	logger.Debug("loaded mtime", slog.Int64("count", Must(f.mtimes.Cardinality(ctx, "default"))))
+	logger.Debug("loaded LastModified data from S3", slog.Int64("count", counter))
 	return nil
 }
 

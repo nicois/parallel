@@ -144,27 +144,27 @@ func (s *Stats) String() string {
 	if d > time.Second {
 		etaString = FriendlyDuration(d)
 	}
+	var etaPart string
+	var skippedPart string
 	if etaString == "" {
-		return fmt.Sprintf("Queued: %v; Skipped: %v; In progress: %v; Succeeded: %v; Failed: %v; Aborted: %v; Total: %v; Elapsed time: %v",
-			s.Queued.Load(),
-			s.Skipped.Load(),
-			s.InProgress.Load(),
-			s.Succeeded.Load(),
-			s.Failed.Load(),
-			s.Aborted.Load(),
-			s.Total.Load(),
-			time.Since(s.since).Round(time.Second))
+		etaPart = fmt.Sprintf("Elapsed time: %v", time.Since(s.since).Round(time.Second))
 	} else {
-		return fmt.Sprintf("Queued: %v; Skipped: %v; In progress: %v; Succeeded: %v; Failed: %v; Aborted: %v; Total: %v; Estimated time remaining: %v",
-			s.Queued.Load(),
-			s.Skipped.Load(),
-			s.InProgress.Load(),
-			s.Succeeded.Load(),
-			s.Failed.Load(),
-			s.Aborted.Load(),
-			s.Total.Load(),
-			etaString)
+		etaPart = fmt.Sprintf("Estimated time remaining: %v", etaString)
 	}
+	if skipped := s.Skipped.Load(); skipped > 0 {
+		skippedPart = fmt.Sprintf(" (+%v skipped)", skipped)
+	}
+
+	return fmt.Sprintf("Queued: %v; In progress: %v; Succeeded: %v; Failed: %v; Aborted: %v; Total: %v%v; %v",
+		s.Queued.Load(),
+		s.InProgress.Load(),
+		s.Succeeded.Load(),
+		s.Failed.Load(),
+		s.Aborted.Load(),
+		s.Total.Load(),
+		skippedPart,
+		etaPart,
+	)
 }
 
 func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel context.CancelCauseFunc, ch <-chan RenderedCommand, cache Cache, stats *Stats, limiter *rate.Limiter) {
