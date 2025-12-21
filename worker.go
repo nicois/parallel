@@ -249,7 +249,7 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 			}
 			if !opts.DryRun {
 				if err = cache.WriteSuccess(ctx, marker, []byte(output)); err != nil {
-					logger.Error("could not mark command as successful", slog.Any("error", err))
+					cancel(fmt.Errorf("could not mark command as successful: %w", err))
 				}
 			}
 		} else {
@@ -268,7 +268,7 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 			// store the fact this failed (unless it was due to context cancellation)
 			if !opts.DryRun && realFailure {
 				if err = cache.WriteFailure(ctx, marker, []byte(output)); err != nil {
-					logger.Error("could not mark command as failed", slog.Any("error", err))
+					cancel(fmt.Errorf("could not mark command as failed: %w", err))
 				}
 			}
 			if cancel != nil && opts.AbortOnError {
