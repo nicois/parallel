@@ -24,6 +24,7 @@ type PreparationOpts struct {
 	CSV            bool      `long:"csv" description:"interpret STDIN as a CSV"`
 	CacheLocation  *string   `long:"cache-location" description:"path (or S3 URI) to record successes and failures"`
 	DebouncePeriod *Duration `long:"debounce" description:"re-run jobs outside the debounce period, even if they would normally be skipped"`
+	DeferDelay     *Duration `long:"defer-delay" description:"when deferring reruns, wait some time before beginning processing"`
 	DeferReruns    bool      `long:"defer-reruns" description:"give priority to jobs which have not previously been run"`
 	JsonLine       bool      `long:"json-line" description:"interpret STDIN as JSON objects, one per line"`
 	SkipFailures   bool      `long:"skip-failures" description:"skip jobs which have already been run unsuccessfully"`

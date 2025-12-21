@@ -18,6 +18,7 @@ Optionally:
 - define timeouts
 - abort on job failure
 - inject STDIN to each job
+- use S3(-compatible) backend to store state
 
 ## Installation
 
@@ -63,21 +64,21 @@ Run three variations of `echo`, substituting `{{.value}}` with each input line i
 ```bash
 $ echo -e 'one\ntwo\nthree' \
     | parallel -- echo {{.value}}
-Dec  5 11:51:29.914 INF Success command="{command:[echo three] input:}" "combined output"="three\n"
-Dec  5 11:51:29.915 INF Success command="{command:[echo two] input:}" "combined output"="two\n"
-Dec  5 11:51:29.915 INF Success command="{command:[echo one] input:}" "combined output"="one\n"
-Dec  5 11:51:29.915 INF Queued: 0; Skipped: 0; In progress: 0; Succeeded: 3; Failed: 0; Aborted: 0; Total: 3; Estimated time remaining: 0s
+Dec 22 08:09:29.670 INF Success command="{command:[echo three] input:}" "combined output"="three\n"
+Dec 22 08:09:29.670 INF Success command="{command:[echo two] input:}" "combined output"="two\n"
+Dec 22 08:09:29.670 INF Success command="{command:[echo one] input:}" "combined output"="one\n"
+Dec 22 08:09:29.670 INF Queued: 0; In progress: 0; Succeeded: 3; Failed: 0; Aborted: 0; Total: 3; Elapsed time: 0s
 ```
 
 In fact, if `parallel` is run without supplying a command, it does the same thing:
 
 ```bash
 $ echo -e 'one\ntwo\nthree' | parallel
-Dec  5 11:51:05.255 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
-Dec  5 11:51:05.257 INF Success command="{command:[echo value is one] input:}" "combined output"="value is one\n"
-Dec  5 11:51:05.258 INF Success command="{command:[echo value is three] input:}" "combined output"="value is three\n"
-Dec  5 11:51:05.258 INF Success command="{command:[echo value is two] input:}" "combined output"="value is two\n"
-Dec  5 11:51:05.258 INF Queued: 0; Skipped: 0; In progress: 0; Succeeded: 3; Failed: 0; Aborted: 0; Total: 3; Estimated time remaining: 0s
+Dec 22 08:10:00.810 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
+Dec 22 08:10:00.914 INF Success command="{command:[echo value is two] input:}" "combined output"="value is two\n"
+Dec 22 08:10:00.914 INF Success command="{command:[echo value is one] input:}" "combined output"="value is one\n"
+Dec 22 08:10:00.914 INF Success command="{command:[echo value is three] input:}" "combined output"="value is three\n"
+Dec 22 08:10:00.914 INF Queued: 0; In progress: 0; Succeeded: 3; Failed: 0; Aborted: 0; Total: 3; Elapsed time: 0s
 ```
 
 #### JSON parsing
@@ -87,10 +88,9 @@ Parse each input line as a JSON object
 ```bash
 $ echo -e '{"animal": "cat", "name": "Scarface Claw"}\n{"animal": "dog", "name": "Bitzer Maloney"}' \
     | parallel --json-line -- echo the {{.animal}} is called {{.name}}
-Dec  4 12:51:10.763 INF Success command="{command:[echo the cat is called Scarface Claw] input:}" "combined output"="the cat is called Scarface Claw\n"
-Dec  4 12:51:10.763 INF Success command="{command:[echo the dog is called Bitzer Maloney] input:}" "combined output"="the dog is called Bitzer Maloney\n"
-Dec  4 12:51:10.763 INF Queued: 0; Skipped: 0; In progress: 0; Succeeded: 2; Failed: 0; Total: 2; Elapsed time: 0s
-
+Dec 22 08:10:19.143 INF Success command="{command:[echo the cat is called Scarface Claw] input:}" "combined output"="the cat is called Scarface Claw\n"
+Dec 22 08:10:19.143 INF Success command="{command:[echo the dog is called Bitzer Maloney] input:}" "combined output"="the dog is called Bitzer Maloney\n"
+Dec 22 08:10:19.144 INF Queued: 0; In progress: 0; Succeeded: 2; Failed: 0; Aborted: 0; Total: 2; Elapsed time: 0s
 ```
 
 #### CSV parsing
@@ -98,9 +98,10 @@ Dec  4 12:51:10.763 INF Queued: 0; Skipped: 0; In progress: 0; Succeeded: 2; Fai
 ```bash
 $ echo -e 'animal,name\ncat,Scarface Claw\ndog,Bitzer Maloney' \
     | parallel --csv -- echo the {{.animal}} is called {{.name}}
-Dec  4 12:51:40.897 INF Success command="{command:[echo the cat is called Scarface Claw] input:}" "combined output"="the cat is called Scarface Claw\n"
-Dec  4 12:51:40.897 INF Success command="{command:[echo the dog is called Bitzer Maloney] input:}" "combined output"="the dog is called Bitzer Maloney\n"
-Dec  4 12:51:40.897 INF Queued: 0; Skipped: 0; In progress: 0; Succeeded: 2; Failed: 0; Total: 2; Elapsed time: 0s
+Dec 22 08:10:41.909 INF Success command="{command:[echo the cat is called Scarface Claw] input:}" "combined output"="the cat is called Scarface Claw\n"
+Dec 22 08:10:41.909 INF Success command="{command:[echo the dog is called Bitzer Maloney] input:}" "combined output"="the dog is called Bitzer Maloney\n"
+Dec 22 08:10:41.909 INF Queued: 0; In progress: 0; Succeeded: 2; Failed: 0; Aborted: 0; Total: 2; Elapsed time: 0s
+
 ```
 
 #### Status logging
@@ -112,18 +113,18 @@ Duplicate status messages, where nothing has changed, will be suppressed for up 
 ```bash
 $ seq 1 10 \
     | parallel --concurrency 4 -- bash -c 'echo {{.value}} ; sleep 4'
-Dec  4 12:52:20.534 INF Success command="{command:[bash -c echo 1 ; sleep 4] input:}" "combined output"="1\n"
-Dec  4 12:52:20.533 INF Success command="{command:[bash -c echo 2 ; sleep 4] input:}" "combined output"="2\n"
-Dec  4 12:52:20.534 INF Success command="{command:[bash -c echo 3 ; sleep 4] input:}" "combined output"="3\n"
-Dec  4 12:52:20.534 INF Success command="{command:[bash -c echo 4 ; sleep 4] input:}" "combined output"="4\n"
-Dec  4 12:52:24.539 INF Success command="{command:[bash -c echo 5 ; sleep 4] input:}" "combined output"="5\n"
-Dec  4 12:52:24.539 INF Success command="{command:[bash -c echo 8 ; sleep 4] input:}" "combined output"="8\n"
-Dec  4 12:52:24.539 INF Success command="{command:[bash -c echo 6 ; sleep 4] input:}" "combined output"="6\n"
-Dec  4 12:52:24.539 INF Success command="{command:[bash -c echo 7 ; sleep 4] input:}" "combined output"="7\n"
-Dec  4 12:52:26.529 INF Queued: 0; Skipped: 0; In progress: 2; Succeeded: 8; Failed: 0; Total: 10; Estimated time remaining: 0s
-Dec  4 12:52:28.544 INF Success command="{command:[bash -c echo 9 ; sleep 4] input:}" "combined output"="9\n"
-Dec  4 12:52:28.544 INF Success command="{command:[bash -c echo 10 ; sleep 4] input:}" "combined output"="10\n"
-Dec  4 12:52:28.544 INF Queued: 0; Skipped: 0; In progress: 0; Succeeded: 10; Failed: 0; Total: 10; Estimated time remaining: 0s
+Dec 22 08:12:07.262 INF Success command="{command:[bash -c echo 2 ; sleep 4] input:}" "combined output"="2\n"
+Dec 22 08:12:07.262 INF Success command="{command:[bash -c echo 3 ; sleep 4] input:}" "combined output"="3\n"
+Dec 22 08:12:07.262 INF Success command="{command:[bash -c echo 1 ; sleep 4] input:}" "combined output"="1\n"
+Dec 22 08:12:07.262 INF Success command="{command:[bash -c echo 4 ; sleep 4] input:}" "combined output"="4\n"
+Dec 22 08:12:10.002 INF Queued: 2; In progress: 4; Succeeded: 4; Failed: 0; Aborted: 0; Total: 10; Estimated time remaining: 6 seconds
+Dec 22 08:12:11.267 INF Success command="{command:[bash -c echo 8 ; sleep 4] input:}" "combined output"="8\n"
+Dec 22 08:12:11.267 INF Success command="{command:[bash -c echo 6 ; sleep 4] input:}" "combined output"="6\n"
+Dec 22 08:12:11.267 INF Success command="{command:[bash -c echo 7 ; sleep 4] input:}" "combined output"="7\n"
+Dec 22 08:12:11.267 INF Success command="{command:[bash -c echo 5 ; sleep 4] input:}" "combined output"="5\n"
+Dec 22 08:12:15.272 INF Success command="{command:[bash -c echo 9 ; sleep 4] input:}" "combined output"="9\n"
+Dec 22 08:12:15.272 INF Success command="{command:[bash -c echo 10 ; sleep 4] input:}" "combined output"="10\n"
+Dec 22 08:12:15.272 INF Queued: 0; In progress: 0; Succeeded: 10; Failed: 0; Aborted: 0; Total: 10; Elapsed time: 12s
 ```
 
 #### Skipping previously-run jobs
@@ -132,22 +133,21 @@ If a job has already been attempted, and should not be re-attempted, use `--skip
 
 ```bash
 $ seq 2 | parallel --skip-successes
-Dec  5 11:26:59.787 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
-Dec  5 11:26:59.790 INF Success command="{command:[echo value is 1] input:}" "combined output"="value is 1\n"
-Dec  5 11:26:59.790 INF Success command="{command:[echo value is 2] input:}" "combined output"="value is 2\n"
-Dec  5 11:26:59.791 INF Queued: 0; Skipped: 0; In progress: 0; Succeeded: 2; Failed: 0; Aborted: 0; Total: 2; Elapsed time: 0s
+Dec 22 08:12:48.198 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
+Dec 22 08:12:48.301 INF Success command="{command:[echo value is 1] input:}" "combined output"="value is 1\n"
+Dec 22 08:12:48.301 INF Success command="{command:[echo value is 2] input:}" "combined output"="value is 2\n"
+Dec 22 08:12:48.301 INF Queued: 0; In progress: 0; Succeeded: 2; Failed: 0; Aborted: 0; Total: 2; Elapsed time: 0s
 
 
 $ seq 5 | parallel --skip-successes
-Dec  5 11:27:02.607 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
-Dec  5 11:27:02.610 INF Success command="{command:[echo value is 4] input:}" "combined output"="value is 4\n"
-Dec  5 11:27:02.610 INF Success command="{command:[echo value is 5] input:}" "combined output"="value is 5\n"
-Dec  5 11:27:02.610 INF Success command="{command:[echo value is 3] input:}" "combined output"="value is 3\n"
-Dec  5 11:27:02.610 INF Queued: 0; Skipped: 2; In progress: 0; Succeeded: 3; Failed: 0; Aborted: 0; Total: 3; Estimated time remaining: 0s
-
+Dec 22 08:12:53.395 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
+Dec 22 08:12:53.498 INF Success command="{command:[echo value is 3] input:}" "combined output"="value is 3\n"
+Dec 22 08:12:53.498 INF Success command="{command:[echo value is 4] input:}" "combined output"="value is 4\n"
+Dec 22 08:12:53.498 INF Success command="{command:[echo value is 5] input:}" "combined output"="value is 5\n"
+Dec 22 08:12:53.499 INF Queued: 0; In progress: 0; Succeeded: 3; Failed: 0; Aborted: 0; Total: 3 (+2 skipped); Elapsed time: 0s
 ```
 
-Notice the `skipped` value in the stats line is now nonzero.
+Notice the `skipped` value in the stats line.
 
 #### Debounce period
 
@@ -158,21 +158,22 @@ Below, 2 jobs are run, then 3 more 10 seconds later. With a debounce of 10s, thi
 
 ```bash
 $ seq 2 | parallel --skip-successes ; sleep 10; seq 5 | parallel --skip-successes ; seq 5 | parallel --skip-successes --debounce 10s
-Dec  5 11:30:35.053 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
-Dec  5 11:30:35.054 INF Success command="{command:[echo value is 1] input:}" "combined output"="value is 1\n"
-Dec  5 11:30:35.054 INF Success command="{command:[echo value is 2] input:}" "combined output"="value is 2\n"
-Dec  5 11:30:35.054 INF Queued: 0; Skipped: 0; In progress: 0; Succeeded: 2; Failed: 0; Aborted: 0; Total: 2; Elapsed time: 0s
+Dec 22 08:15:19.995 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
+Dec 22 08:15:20.000 INF Queued: 2; In progress: 0; Succeeded: 0; Failed: 0; Aborted: 0; Total: 2; Elapsed time: 0s
+Dec 22 08:15:20.099 INF Success command="{command:[echo value is 2] input:}" "combined output"="value is 2\n"
+Dec 22 08:15:20.099 INF Success command="{command:[echo value is 1] input:}" "combined output"="value is 1\n"
+Dec 22 08:15:20.099 INF Queued: 0; In progress: 0; Succeeded: 2; Failed: 0; Aborted: 0; Total: 2; Elapsed time: 0s
 
-Dec  5 11:30:45.061 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
-Dec  5 11:30:45.062 INF Success command="{command:[echo value is 5] input:}" "combined output"="value is 5\n"
-Dec  5 11:30:45.063 INF Success command="{command:[echo value is 4] input:}" "combined output"="value is 4\n"
-Dec  5 11:30:45.063 INF Success command="{command:[echo value is 3] input:}" "combined output"="value is 3\n"
-Dec  5 11:30:45.063 INF Queued: 0; Skipped: 2; In progress: 0; Succeeded: 3; Failed: 0; Aborted: 0; Total: 3; Estimated time remaining: 0s
+Dec 22 08:15:30.113 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
+Dec 22 08:15:30.216 INF Success command="{command:[echo value is 3] input:}" "combined output"="value is 3\n"
+Dec 22 08:15:30.216 INF Success command="{command:[echo value is 4] input:}" "combined output"="value is 4\n"
+Dec 22 08:15:30.216 INF Success command="{command:[echo value is 5] input:}" "combined output"="value is 5\n"
+Dec 22 08:15:30.217 INF Queued: 0; In progress: 0; Succeeded: 3; Failed: 0; Aborted: 0; Total: 3 (+2 skipped); Elapsed time: 0s
 
-Dec  5 11:30:45.064 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
-Dec  5 11:30:45.065 INF Success command="{command:[echo value is 1] input:}" "combined output"="value is 1\n"
-Dec  5 11:30:45.065 INF Success command="{command:[echo value is 2] input:}" "combined output"="value is 2\n"
-Dec  5 11:30:45.065 INF Queued: 0; Skipped: 3; In progress: 0; Succeeded: 2; Failed: 0; Aborted: 0; Total: 2; Elapsed time: 0s
+Dec 22 08:15:30.226 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
+Dec 22 08:15:30.329 INF Success command="{command:[echo value is 1] input:}" "combined output"="value is 1\n"
+Dec 22 08:15:30.329 INF Success command="{command:[echo value is 2] input:}" "combined output"="value is 2\n"
+Dec 22 08:15:30.330 INF Queued: 0; In progress: 0; Succeeded: 2; Failed: 0; Aborted: 0; Total: 2 (+3 skipped); Elapsed time: 0s
 
 ```
 
@@ -183,33 +184,34 @@ If desired `--defer-reruns` will notice if a job has been run previously (whethe
 Where multiple jobs are reruns, priority is given to least recently-run jobs.
 Where jobs have never been run before, the order provided in STDIN is respected.
 
-It is possible for some rerun jobs to be started sooner than they should, due to the way incoming jobs are immediately dispatched
-to the worker processes. In the example below, jobs 1 and 2 "sneak in" early, but the remaining reruns are correctly deferred
-
 ```bash
-$ seq 5 | parallel ; seq 10 | parallel --defer-reruns
-Dec  5 11:44:52.732 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
-Dec  5 11:44:52.735 INF Success command="{command:[echo value is 3] input:}" "combined output"="value is 3\n"
-Dec  5 11:44:52.736 INF Success command="{command:[echo value is 5] input:}" "combined output"="value is 5\n"
-Dec  5 11:44:52.736 INF Success command="{command:[echo value is 2] input:}" "combined output"="value is 2\n"
-Dec  5 11:44:52.736 INF Success command="{command:[echo value is 4] input:}" "combined output"="value is 4\n"
-Dec  5 11:44:52.736 INF Success command="{command:[echo value is 1] input:}" "combined output"="value is 1\n"
-Dec  5 11:44:52.736 INF Queued: 0; Skipped: 0; In progress: 0; Succeeded: 5; Failed: 0; Aborted: 0; Total: 5; Estimated time remaining: 0s
+$ seq 5 | parallel --concurrency=5 ; seq 10 | parallel --defer-reruns --concurrency=5
+Dec 22 08:42:30.726 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
+Dec 22 08:42:30.727 INF Success command="{command:[echo value is 2] input:}" "combined output"="value is 2\n"
+Dec 22 08:42:30.727 INF Success command="{command:[echo value is 1] input:}" "combined output"="value is 1\n"
+Dec 22 08:42:30.727 INF Success command="{command:[echo value is 3] input:}" "combined output"="value is 3\n"
+Dec 22 08:42:30.727 INF Success command="{command:[echo value is 5] input:}" "combined output"="value is 5\n"
+Dec 22 08:42:30.727 INF Success command="{command:[echo value is 4] input:}" "combined output"="value is 4\n"
+Dec 22 08:42:30.728 INF Queued: 0; In progress: 0; Succeeded: 5; Failed: 0; Aborted: 0; Total: 5; Elapsed time: 0s
 
-Dec  5 11:44:52.741 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
-Dec  5 11:44:52.744 INF Success command="{command:[echo value is 1] input:}" "combined output"="value is 1\n"
-Dec  5 11:44:52.744 INF Success command="{command:[echo value is 9] input:}" "combined output"="value is 9\n"
-Dec  5 11:44:52.744 INF Success command="{command:[echo value is 8] input:}" "combined output"="value is 8\n"
-Dec  5 11:44:52.744 INF Success command="{command:[echo value is 2] input:}" "combined output"="value is 2\n"
-Dec  5 11:44:52.745 INF Success command="{command:[echo value is 10] input:}" "combined output"="value is 10\n"
-Dec  5 11:44:52.745 INF Success command="{command:[echo value is 7] input:}" "combined output"="value is 7\n"
-Dec  5 11:44:52.745 INF Success command="{command:[echo value is 5] input:}" "combined output"="value is 5\n"
-Dec  5 11:44:52.745 INF Success command="{command:[echo value is 4] input:}" "combined output"="value is 4\n"
-Dec  5 11:44:52.746 INF Success command="{command:[echo value is 6] input:}" "combined output"="value is 6\n"
-Dec  5 11:44:52.746 INF Success command="{command:[echo value is 3] input:}" "combined output"="value is 3\n"
-Dec  5 11:44:52.746 INF Queued: 0; Skipped: 0; In progress: 0; Succeeded: 10; Failed: 0; Aborted: 0; Total: 10; Estimated time remaining: 0s
+Dec 22 08:42:30.730 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
+Dec 22 08:42:30.834 INF Success command="{command:[echo value is 9] input:}" "combined output"="value is 9\n"
+Dec 22 08:42:30.834 INF Success command="{command:[echo value is 6] input:}" "combined output"="value is 6\n"
+Dec 22 08:42:30.834 INF Success command="{command:[echo value is 10] input:}" "combined output"="value is 10\n"
+Dec 22 08:42:30.834 INF Success command="{command:[echo value is 7] input:}" "combined output"="value is 7\n"
+Dec 22 08:42:30.834 INF Success command="{command:[echo value is 8] input:}" "combined output"="value is 8\n"
+Dec 22 08:42:30.836 INF Success command="{command:[echo value is 1] input:}" "combined output"="value is 1\n"
+Dec 22 08:42:30.836 INF Success command="{command:[echo value is 4] input:}" "combined output"="value is 4\n"
+Dec 22 08:42:30.836 INF Success command="{command:[echo value is 3] input:}" "combined output"="value is 3\n"
+Dec 22 08:42:30.836 INF Success command="{command:[echo value is 2] input:}" "combined output"="value is 2\n"
+Dec 22 08:42:30.836 INF Success command="{command:[echo value is 5] input:}" "combined output"="value is 5\n"
+Dec 22 08:42:30.836 INF Queued: 0; In progress: 0; Succeeded: 10; Failed: 0; Aborted: 0; Total: 10; Elapsed time: 0s
 
 ```
+
+To make `--defer-reruns` more effective, a small delay is introduced before jobs start being executed.
+During this period, jobs are collected and sorted, making it more likely that the right jobs will be run first.
+`--defer-delay` can override the length of this delay, which defaults to 100ms.
 
 #### Suppressing success and/or failure messages
 
@@ -218,10 +220,10 @@ the filesystem as normal:
 
 ```bash
 $ seq 1 254 | parallel --hide-failures --concurrency 100 --debounce 10s --timeout 10s -- nc -vz 192.168.4.{{.value}} 443
-Dec  4 21:51:17.386 INF Success command="{command:[nc -vz 192.168.4.53 443] input:}" "combined output"="Ncat: Version 7.92 ( https://nmap.org/ncat )\nNcat: Connected to 192.168.4.53:443.\nNcat: 0 bytes sent, 0 bytes received in 0.06 seconds.\n"
-Dec  4 21:51:20.001 INF Queued: 142; Skipped: 0; In progress: 100; Succeeded: 1; Failed: 11; Total: 254; Estimated time remaining: 11s
-Dec  4 21:51:23.681 INF Success command="{command:[nc -vz 192.168.4.222 443] input:}" "combined output"="Ncat: Version 7.92 ( https://nmap.org/ncat )\nNcat: Connected to 192.168.4.222:443.\nNcat: 0 bytes sent, 0 bytes received in 0.14 seconds.\n"
-Dec  4 21:51:26.735 INF Queued: 0; Skipped: 0; In progress: 0; Succeeded: 2; Failed: 252; Total: 254; Estimated time remaining: 0s
+Dec 22 08:47:59.126 INF Success command="{command:[nc -vz 192.168.4.53 443] input:}" "combined output"="Ncat: Version 7.92 ( https://nmap.org/ncat )\nNcat: Connected to 192.168.4.53:443.\nNcat: 0 bytes sent, 0 bytes received in 0.06 seconds.\n"
+Dec 22 08:48:00.000 INF Queued: 144; In progress: 100; Succeeded: 1; Failed: 9; Aborted: 0; Total: 254; Estimated time remaining: 88 seconds
+Dec 22 08:48:05.378 INF Success command="{command:[nc -vz 192.168.4.222 443] input:}" "combined output"="Ncat: Version 7.92 ( https://nmap.org/ncat )\nNcat: Connected to 192.168.4.222:443.\nNcat: 0 bytes sent, 0 bytes received in 0.09 seconds.\n"
+Dec 22 08:48:09.429 INF Queued: 0; In progress: 0; Succeeded: 2; Failed: 252; Aborted: 0; Total: 254; Estimated time remaining: 3 seconds
 ```
 
 ### Rate limiting
@@ -247,16 +249,16 @@ An implicit 1 second sleep will be substituted for the actual execution of each 
 
 ```bash
 $ seq 8 | parallel --dry-run --debounce 5s --concurrency 1 --input y -- rm -f foo.{{.value}}
-Dec  4 20:44:56.622 INF Success command="{command:[rm -f foo.1] input:y}" "combined output"="(dry run)"
-Dec  4 20:44:57.623 INF Success command="{command:[rm -f foo.2] input:y}" "combined output"="(dry run)"
-Dec  4 20:44:58.624 INF Success command="{command:[rm -f foo.3] input:y}" "combined output"="(dry run)"
-Dec  4 20:44:59.625 INF Success command="{command:[rm -f foo.4] input:y}" "combined output"="(dry run)"
-Dec  4 20:45:00.000 INF Queued: 3; Skipped: 0; In progress: 1; Succeeded: 4; Failed: 0; Total: 8; Estimated time remaining: 4s
-Dec  4 20:45:00.627 INF Success command="{command:[rm -f foo.5] input:y}" "combined output"="(dry run)"
-Dec  4 20:45:01.627 INF Success command="{command:[rm -f foo.6] input:y}" "combined output"="(dry run)"
-Dec  4 20:45:02.628 INF Success command="{command:[rm -f foo.7] input:y}" "combined output"="(dry run)"
-Dec  4 20:45:03.628 INF Success command="{command:[rm -f foo.8] input:y}" "combined output"="(dry run)"
-Dec  4 20:45:03.628 INF Queued: 0; Skipped: 0; In progress: 0; Succeeded: 8; Failed: 0; Total: 8; Estimated time remaining: 0s
+Dec 22 08:49:02.035 INF Success command="{command:[rm -f foo.1] input:y}" "combined output"="(dry run)"
+Dec 22 08:49:03.036 INF Success command="{command:[rm -f foo.2] input:y}" "combined output"="(dry run)"
+Dec 22 08:49:04.037 INF Success command="{command:[rm -f foo.3] input:y}" "combined output"="(dry run)"
+Dec 22 08:49:05.038 INF Success command="{command:[rm -f foo.4] input:y}" "combined output"="(dry run)"
+Dec 22 08:49:06.039 INF Success command="{command:[rm -f foo.5] input:y}" "combined output"="(dry run)"
+Dec 22 08:49:07.040 INF Success command="{command:[rm -f foo.6] input:y}" "combined output"="(dry run)"
+Dec 22 08:49:08.041 INF Success command="{command:[rm -f foo.7] input:y}" "combined output"="(dry run)"
+Dec 22 08:49:09.042 INF Success command="{command:[rm -f foo.8] input:y}" "combined output"="(dry run)"
+Dec 22 08:49:09.042 INF Queued: 0; In progress: 0; Succeeded: 8; Failed: 0; Aborted: 0; Total: 8; Elapsed time: 8s
+
 ```
 
 ### Job cancellations and timeouts
@@ -266,18 +268,16 @@ Defining a timeout will cause jobs to be terminated if it is reached:
 ```bash
 $ seq 1 7 \
     | parallel --concurrency 2 --timeout 5s -- bash -c 'echo {{.value}} ; sleep {{.value}}'
-Dec  4 12:53:08.995 INF Success command="{command:[bash -c echo 1 ; sleep 1] input:}" "combined output"="1\n"
-Dec  4 12:53:09.995 INF Success command="{command:[bash -c echo 2 ; sleep 2] input:}" "combined output"="2\n"
-Dec  4 12:53:12.000 INF Success command="{command:[bash -c echo 3 ; sleep 3] input:}" "combined output"="3\n"
-Dec  4 12:53:14.000 INF Success command="{command:[bash -c echo 4 ; sleep 4] input:}" "combined output"="4\n"
-Dec  4 12:53:17.004 WRN job was aborted due to context cancellation command="{command:[bash -c echo 5 ; sleep 5] input:}"
-Dec  4 12:53:17.004 WRN Failure command="{command:[bash -c echo 5 ; sleep 5] input:}" "combined output"="5\n" error="signal: killed"
-Dec  4 12:53:17.991 INF Queued: 0; Skipped: 0; In progress: 2; Succeeded: 4; Failed: 1; Total: 7; Estimated time remaining: 3s
-Dec  4 12:53:19.002 WRN job was aborted due to context cancellation command="{command:[bash -c echo 6 ; sleep 6] input:}"
-Dec  4 12:53:19.002 WRN Failure command="{command:[bash -c echo 6 ; sleep 6] input:}" "combined output"="6\n" error="signal: killed"
-Dec  4 12:53:22.007 WRN job was aborted due to context cancellation command="{command:[bash -c echo 7 ; sleep 7] input:}"
-Dec  4 12:53:22.007 WRN Failure command="{command:[bash -c echo 7 ; sleep 7] input:}" "combined output"="7\n" error="signal: killed"
-Dec  4 12:53:22.008 INF Queued: 0; Skipped: 0; In progress: 0; Succeeded: 4; Failed: 3; Total: 7; Estimated time remaining: 0s
+Dec 22 08:50:10.000 INF Queued: 5; In progress: 2; Succeeded: 0; Failed: 0; Aborted: 0; Total: 7; Elapsed time: 1s
+Dec 22 08:50:10.059 INF Success command="{command:[bash -c echo 1 ; sleep 1] input:}" "combined output"="1\n"
+Dec 22 08:50:11.059 INF Success command="{command:[bash -c echo 2 ; sleep 2] input:}" "combined output"="2\n"
+Dec 22 08:50:13.064 INF Success command="{command:[bash -c echo 3 ; sleep 3] input:}" "combined output"="3\n"
+Dec 22 08:50:15.064 INF Success command="{command:[bash -c echo 4 ; sleep 4] input:}" "combined output"="4\n"
+Dec 22 08:50:18.067 WRN Failure command="{command:[bash -c echo 5 ; sleep 5] input:}" "combined output"="5\n" error="signal: killed"
+Dec 22 08:50:20.001 INF Queued: 0; In progress: 2; Succeeded: 4; Failed: 1; Aborted: 0; Total: 7; Estimated time remaining: 3 seconds
+Dec 22 08:50:20.065 WRN Failure command="{command:[bash -c echo 6 ; sleep 6] input:}" "combined output"="6\n" error="signal: killed"
+Dec 22 08:50:23.070 WRN Failure command="{command:[bash -c echo 7 ; sleep 7] input:}" "combined output"="7\n" error="signal: killed"
+Dec 22 08:50:23.070 INF Queued: 0; In progress: 0; Succeeded: 4; Failed: 3; Aborted: 0; Total: 7; Elapsed time: 14s
 ```
 
 Cancelling (e.g. with CTRL-C) while running will stop any further jobs from being started, and will exit
@@ -289,19 +289,23 @@ their process groups.
 
 ```bash
 $ seq 80 | parallel --concurrency 5 --defer-reruns  -- bash -c 'trap noop SIGTERM ; sleep {{.value}}'
-^CDec  7 13:02:16.012 WRN received cancellation signal. Waiting for current jobs to finish before exiting. Hit CTRL-C again to exit sooner
-Dec  7 13:02:16.012 INF Queued: 75; Skipped: 0; In progress: 5; Succeeded: 0; Failed: 0; Aborted: 0; Total: 80; Elapsed time: 2s
-Dec  7 13:02:17.000 INF Queued: 0; Skipped: 0; In progress: 5; Succeeded: 0; Failed: 0; Aborted: 0; Total: 5; Elapsed time: 3s
-^CDec  7 13:02:17.749 WRN second CTRL-C received. Sending SIGTERM to running jobs. Hit CTRL-C again to use SIGKILL instead
-^CDec  7 13:02:20.234 WRN third CTRL-C received. Sending SIGKILL to running jobs. Hit CTRL-C again to kill all subprocesses too
-^CDec  7 13:02:22.158 WRN fourth CTRL-C received. Sending SIGKILL to running jobs and their subprocesses
-Dec  7 13:02:22.158 WRN Failure command="{command:[bash -c trap noop SIGTERM ; sleep 48] input:}" "combined output"="" error="signal: killed"
-Dec  7 13:02:22.158 WRN Failure command="{command:[bash -c trap noop SIGTERM ; sleep 44] input:}" "combined output"="" error="signal: killed"
-Dec  7 13:02:22.158 WRN Failure command="{command:[bash -c trap noop SIGTERM ; sleep 46] input:}" "combined output"="" error="signal: killed"
-Dec  7 13:02:22.159 WRN Failure command="{command:[bash -c trap noop SIGTERM ; sleep 45] input:}" "combined output"="" error="signal: killed"
-Dec  7 13:02:22.159 WRN Failure command="{command:[bash -c trap noop SIGTERM ; sleep 47] input:}" "combined output"="" error="signal: killed"
-Dec  7 13:02:22.159 INF Queued: 0; Skipped: 0; In progress: 0; Succeeded: 0; Failed: 5; Aborted: 0; Total: 5; Elapsed time: 8s
-Dec  7 13:02:22.159 ERR user-initiated shutdown
+Dec 22 08:50:40.001 INF Queued: 75; In progress: 5; Succeeded: 0; Failed: 0; Aborted: 0; Total: 80; Elapsed time: 1s
+Dec 22 08:50:40.498 INF Success command="{command:[bash -c trap noop SIGTERM ; sleep 1] input:}" "combined output"=""
+^CDec 22 08:50:40.934 WRN received cancellation signal. Waiting for current jobs to finish before exiting. Hit CTRL-C again to exit sooner
+Dec 22 08:50:40.934 INF Queued: 0; In progress: 5; Succeeded: 1; Failed: 0; Aborted: 0; Total: 6; Estimated time remaining: 1 seconds
+Dec 22 08:50:41.498 INF Success command="{command:[bash -c trap noop SIGTERM ; sleep 2] input:}" "combined output"=""
+Dec 22 08:50:42.000 INF Queued: 0; In progress: 4; Succeeded: 2; Failed: 0; Aborted: 0; Total: 6; Elapsed time: 3s
+^CDec 22 08:50:42.222 WRN second CTRL-C received. Sending SIGTERM to running jobs. Hit CTRL-C again to use SIGKILL instead
+Dec 22 08:50:42.499 INF Success command="{command:[bash -c trap noop SIGTERM ; sleep 3] input:}" "combined output"="bash: line 1: noop: command not found\n"
+^CDec 22 08:50:42.948 WRN third CTRL-C received. Sending SIGKILL to running jobs. Hit CTRL-C again to kill all subprocesses too
+Dec 22 08:50:43.001 INF Queued: 0; In progress: 3; Succeeded: 3; Failed: 0; Aborted: 0; Total: 6; Elapsed time: 4s
+Dec 22 08:50:43.497 WRN Failure command="{command:[bash -c trap noop SIGTERM ; sleep 4] input:}" "combined output"="" error="signal: killed"
+^CDec 22 08:50:43.712 WRN fourth CTRL-C received. Sending SIGKILL to running jobs and their subprocesses
+Dec 22 08:50:43.712 WRN Failure command="{command:[bash -c trap noop SIGTERM ; sleep 6] input:}" "combined output"="" error="signal: killed"
+Dec 22 08:50:43.712 WRN Failure command="{command:[bash -c trap noop SIGTERM ; sleep 5] input:}" "combined output"="" error="signal: killed"
+Dec 22 08:50:43.713 INF Queued: 0; In progress: 0; Succeeded: 3; Failed: 3; Aborted: 0; Total: 6; Estimated time remaining: 1 seconds
+Dec 22 08:50:43.713 ERR user-initiated shutdown
+
 ```
 
 If you want to stop processing if a job fails, use `--abort-on-error`:
@@ -309,16 +313,16 @@ If you want to stop processing if a job fails, use `--abort-on-error`:
 ```bash
 $ seq 1 10 \
     | parallel --abort-on-error --concurrency 2 --timeout 5s -- bash -c 'echo {{.value}} ; sleep {{.value}}'
-Dec  4 12:54:51.606 INF Success command="{command:[bash -c echo 1 ; sleep 1] input:}" "combined output"="1\n"
-Dec  4 12:54:52.606 INF Success command="{command:[bash -c echo 2 ; sleep 2] input:}" "combined output"="2\n"
-Dec  4 12:54:54.610 INF Success command="{command:[bash -c echo 3 ; sleep 3] input:}" "combined output"="3\n"
-Dec  4 12:54:56.611 INF Success command="{command:[bash -c echo 4 ; sleep 4] input:}" "combined output"="4\n"
-Dec  4 12:54:59.614 WRN job was aborted due to context cancellation command="{command:[bash -c echo 5 ; sleep 5] input:}"
-Dec  4 12:54:59.614 WRN Failure command="{command:[bash -c echo 5 ; sleep 5] input:}" "combined output"="5\n" error="signal: killed"
-Dec  4 12:54:59.614 WRN job was aborted due to context cancellation command="{command:[bash -c echo 6 ; sleep 6] input:}"
-Dec  4 12:54:59.614 WRN Failure command="{command:[bash -c echo 6 ; sleep 6] input:}" "combined output"="6\n" error="signal: killed"
-Dec  4 12:54:59.615 INF Queued: 4; Skipped: 0; In progress: 0; Succeeded: 4; Failed: 2; Total: 10; Estimated time remaining: 6s
-Dec  4 12:54:59.615 ERR nonzero exit code
+Dec 22 08:51:40.001 INF Queued: 8; In progress: 2; Succeeded: 0; Failed: 0; Aborted: 0; Total: 10; Elapsed time: 1s
+Dec 22 08:51:40.253 INF Success command="{command:[bash -c echo 1 ; sleep 1] input:}" "combined output"="1\n"
+Dec 22 08:51:41.253 INF Success command="{command:[bash -c echo 2 ; sleep 2] input:}" "combined output"="2\n"
+Dec 22 08:51:43.258 INF Success command="{command:[bash -c echo 3 ; sleep 3] input:}" "combined output"="3\n"
+Dec 22 08:51:45.258 INF Success command="{command:[bash -c echo 4 ; sleep 4] input:}" "combined output"="4\n"
+Dec 22 08:51:48.261 WRN Failure command="{command:[bash -c echo 5 ; sleep 5] input:}" "combined output"="5\n" error="signal: killed"
+Dec 22 08:51:49.000 INF Queued: 4; In progress: 1; Succeeded: 4; Failed: 1; Aborted: 0; Total: 10; Estimated time remaining: 15 seconds
+Dec 22 08:51:50.259 WRN Failure command="{command:[bash -c echo 6 ; sleep 6] input:}" "combined output"="6\n" error="signal: killed"
+Dec 22 08:51:50.260 INF Queued: 4; In progress: 0; Succeeded: 4; Failed: 2; Aborted: 0; Total: 10; Estimated time remaining: 15 seconds
+Dec 22 08:51:50.260 ERR nonzero exit code
 ```
 
 ### Simulating STDIN
@@ -329,8 +333,9 @@ Note that the input text can be the same for each job, or can be parameterised u
 ```bash
 $ echo -e 'animal,name,emotion\ncat,Scarface Claw,hungry' \
     | parallel --input '{{.emotion}}' --csv -- /bin/bash -c 'read emotion; echo the {{.animal}} is called {{.name}} and is $emotion'
-Dec  4 11:42:38.289 INF Success command="{command:[/bin/bash -c read emotion; echo the cat is called Scarface Claw and is $emotion] input:hungry}" "combined output"="the cat is called Scarface Claw and is hungry\n"
-Dec  4 11:42:38.289 INF Submitted: 1; Skipped: 0; In progress: 0; Succeeded: 1; Failed: 0; Total: 1; Elapsed time: 0s
+Dec 22 08:52:17.013 INF Success command="{command:[/bin/bash -c read emotion; echo the cat is called Scarface Claw and is $emotion] input:hungry}" "combined output"="the cat is called Scarface Claw and is hungry\n"
+Dec 22 08:52:17.014 INF Queued: 0; In progress: 0; Succeeded: 1; Failed: 0; Aborted: 0; Total: 1; Elapsed time: 0s
+
 ```
 
 ### Caching results
@@ -343,5 +348,8 @@ An alternative location can be provided using `--cache-location`.
 It is possible to use a S3 bucket to cache the results: `--cache-location s3://my-bucket/my-prefix`
 
 As long as you have valid AWS environment variables/credentials, this should "just work". You may also need to ensure that the `AWS_REGION` environment variable is set correctly.
-Note that metadata (filename, last-modified time) for all assets in the S3 bucket under the nominated prefix will be read each time the application is run. For more than a few thousand records, this may take a few seconds.
+Note that metadata (filename, last-modified time) for all assets in the S3 bucket under the nominated prefix will be read each time the application is run.
+For more than a few thousand records, this may take a few seconds. This data is stored in a temporary sqlite database,
+which is deleted when the process exits.
+
 If an error is detected while writing to the S3 bucket, this will stop subsequent jobs from running. The most likely cause is your AWS credentials have expired.

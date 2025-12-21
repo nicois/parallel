@@ -228,7 +228,7 @@ func PrepareAndRun(ctx context.Context, reader io.Reader, opts Opts, commandLine
 		}
 	}()
 
-	go sorter(ctx, presortedCommands, postSortedCommands)
+	go sorter(ctx, opts, presortedCommands, postSortedCommands)
 
 	// call the main entrypoint, now everything is in place
 	err = Run(ctx, stats, interruptChannel, opts, cache, postSortedCommands, limiter)
@@ -247,7 +247,7 @@ func lessUnsortedCommand(a, b UnsortedCommand) bool {
 	return a.timestamp.Before(b.timestamp)
 }
 
-func sorter(ctx context.Context, presortedCommands <-chan UnsortedCommand, postSortedCommands chan<- RenderedCommand) {
+func sorter(ctx context.Context, opts Opts, presortedCommands <-chan UnsortedCommand, postSortedCommands chan<- RenderedCommand) {
 	// hold a sorted representation of the commands
 	tree := btree.NewG(2, lessUnsortedCommand)
 
@@ -301,7 +301,14 @@ func sorter(ctx context.Context, presortedCommands <-chan UnsortedCommand, postS
 	// with higher-priority jobs. Otherwise, the first jobs to be inserted will
 	// immediately be retrieved, even if they are lower priority than jobs
 	// inserted a ms later
-	_ = Sleep(ctx, 100*time.Millisecond)
+	if opts.DeferReruns {
+		delay := 100 * time.Millisecond
+		if dd := opts.DeferDelay; dd != nil {
+			delay = time.Duration(*dd)
+		}
+		logger.Debug("delaying to improve effectiveness of deferring reruns", slog.Duration("delay period", delay))
+		_ = Sleep(ctx, delay)
+	}
 
 	for {
 		var finalIteration bool
