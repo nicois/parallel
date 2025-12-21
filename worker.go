@@ -191,18 +191,11 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 		}
 	}()
 	for {
-		if limiter == nil {
-			// exit immediately if the context is cancelled
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-		} else {
-			// exit immediately if the context is cancelled while waiting for a slot
-			if err := limiter.Wait(ctx); err != nil {
-				return
-			}
+		// exit immediately if the context is cancelled
+		select {
+		case <-ctx.Done():
+			return
+		default:
 		}
 
 		select {
@@ -210,6 +203,12 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 			return
 		case command, ok = <-ch:
 			if !ok {
+				return
+			}
+		}
+		if limiter != nil {
+			// exit immediately if the context is cancelled while waiting for a slot
+			if err := limiter.Wait(ctx); err != nil {
 				return
 			}
 		}

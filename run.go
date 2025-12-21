@@ -335,6 +335,10 @@ func sorter(ctx context.Context, presortedCommands <-chan UnsortedCommand, postS
 				// mostly be blocked as all workers will be busy.
 			case postSortedCommands <- uc.command:
 				logger.Debug("inserted into queue", slog.Any("command", uc))
+				// This is a bit of a hack. The intention is that, when rate-limiting,
+				// the first jobs picked up by workers are also the first ones to
+				// complete the limiter.Wait() step
+				time.Sleep(10 * time.Microsecond)
 			}
 		}
 	}
