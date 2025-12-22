@@ -37,7 +37,9 @@ Application Options:
 preparation:
       --csv                     interpret STDIN as a CSV
       --cache-location=         path (or S3 URI) to record successes and failures
-      --debounce=               re-run jobs outside the debounce period, even if they would normally be skipped
+      --debounce-successes=     re-run successful jobs outside the debounce period, even if they would normally be skipped
+      --debounce-failures=      re-run failed jobs outside the debounce period, even if they would normally be skipped
+      --defer-delay=            when deferring reruns, wait some time before beginning processing
       --defer-reruns            give priority to jobs which have not previously been run
       --json-line               interpret STDIN as JSON objects, one per line
       --skip-failures           skip jobs which have already been run unsuccessfully
@@ -151,13 +153,13 @@ Notice the `skipped` value in the stats line.
 
 #### Debounce period
 
-If you only want to skip jobs which haven't succeeded/failed recently, you can provide a `--debounce` period.
+If you only want to skip jobs which haven't succeeded/failed recently, you can provide a debounce period using `--debounce-successes` and/or `--debounce-failures`.
 Be aware that this period is assessed when the STDIN record is parsed, not when the job is about to start.
 
 Below, 2 jobs are run, then 3 more 10 seconds later. With a debounce of 10s, this means the third execution skips the 3 recent jobs:
 
 ```bash
-$ seq 2 | parallel --skip-successes ; sleep 10; seq 5 | parallel --skip-successes ; seq 5 | parallel --skip-successes --debounce 10s
+$ seq 2 | parallel --skip-successes ; sleep 10; seq 5 | parallel --skip-successes ; seq 5 | parallel --skip-successes --debounce-successes 10s
 Dec 22 08:15:19.995 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
 Dec 22 08:15:20.000 INF Queued: 2; In progress: 0; Succeeded: 0; Failed: 0; Aborted: 0; Total: 2; Elapsed time: 0s
 Dec 22 08:15:20.099 INF Success command="{command:[echo value is 2] input:}" "combined output"="value is 2\n"

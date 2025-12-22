@@ -188,7 +188,7 @@ func PrepareAndRun(ctx context.Context, reader io.Reader, opts Opts, commandLine
 				}
 				if opts.SkipSuccesses {
 					// skip jobs previously run successfully, unless outside of the debounce period
-					if period := time.Since(mtime); opts.DebouncePeriod != nil && period > time.Duration(*opts.DebouncePeriod) {
+					if period := time.Since(mtime); opts.DebounceSuccessesPeriod != nil && period > time.Duration(*opts.DebounceSuccessesPeriod) {
 						logger.Debug("already successfully executed, but outside the debounce period", slog.Any("command", renderedCommand))
 					} else {
 						logger.Debug("already successfully executed", "command", renderedCommand, slog.String("cached combined output file", marker))
@@ -203,7 +203,7 @@ func PrepareAndRun(ctx context.Context, reader io.Reader, opts Opts, commandLine
 				}
 				if opts.SkipFailures {
 					// skip jobs previously run unsuccessfully, unless outside of the debounce period
-					if period := time.Since(mtime); opts.DebouncePeriod != nil && period > time.Duration(*opts.DebouncePeriod) {
+					if period := time.Since(mtime); opts.DebounceFailuresPeriod != nil && period > time.Duration(*opts.DebounceFailuresPeriod) {
 						logger.Debug("already unsuccessfully executed, but outside the debounce period", slog.Any("command", renderedCommand))
 					} else {
 						logger.Debug("already unsuccessfully executed", "command", renderedCommand, slog.String("cached combined output file", marker))
