@@ -84,6 +84,7 @@ func Run(ctx context.Context, stats *Stats, interruptChannel <-chan os.Signal, o
 			}
 			cancel(errors.New("user-initiated shutdown"))
 		case <-ctx.Done():
+			logger.Info("ctx cancelled, leaving without cancelling")
 			return
 		}
 
@@ -262,6 +263,12 @@ func sorter(ctx context.Context, opts Opts, presortedCommands <-chan UnsortedCom
 		var minitime time.Time
 		defer close(youHaveMail)
 		for {
+			// if context is cancelled, exit
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 			select {
 			case <-ctx.Done():
 				return
@@ -334,6 +341,12 @@ func sorter(ctx context.Context, opts Opts, presortedCommands <-chan UnsortedCom
 				}
 				break
 			}
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			select {
 			case <-ctx.Done():
 				return

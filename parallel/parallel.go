@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/jessevdk/go-flags"
 	"github.com/lmittmann/tint"
@@ -66,10 +68,21 @@ func main() {
 			logger.Error("cannot initialise S3 cache", slog.Any("error", err))
 			os.Exit(1)
 		}
+		if expiry := parallel.GetS3ExpiryTime(); expiry != nil {
+			safetyMargin := expiry.Add(-5 * time.Minute)
+			if safetyMargin.Before(time.Now()) {
+				logger.Error("too close to AWS token expiration", slog.Time("shutdown time", safetyMargin), slog.Time("token expiry time", *expiry), slog.String("duration until safety margin is reached", parallel.FriendlyDuration(time.Until(safetyMargin))))
+				os.Exit(1)
+			}
+			logger.Info("shutting down before the AWS token expires", slog.Time("shutdown time", safetyMargin), slog.Time("token expiry time", *expiry), slog.String("duration until safety margin is reached", parallel.FriendlyDuration(time.Until(safetyMargin))))
+			var dCancel context.CancelFunc
+			ctx, dCancel = context.WithDeadlineCause(ctx, *expiry, errors.New("AWS token will expire soon"))
+			defer dCancel()
+		}
 	} else {
 		cache = parallel.NewFileCache(*opts.CacheLocation)
 	}
-	err = parallel.PrepareAndRun(context.Background(), reader, opts, commandLine, cache, interruptChannel)
+	err = parallel.PrepareAndRun(ctx, reader, opts, commandLine, cache, interruptChannel)
 
 	// show exit reasons
 	if err != nil {

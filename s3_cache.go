@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -145,4 +146,14 @@ func readCloserToBytes(rc io.ReadCloser) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+func GetS3ExpiryTime() *time.Time {
+	t, err := time.Parse(time.RFC3339, os.Getenv("AWS_EXPIRY_TIME"))
+	fmt.Println("e", err)
+	if err == nil {
+		return &t
+	}
+	fmt.Println("e2", err)
+	return nil
 }
