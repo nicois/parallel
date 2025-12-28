@@ -5,7 +5,7 @@ type Yes struct {
 }
 
 func (y Yes) Read(p []byte) (int, error) {
-	if len(p) < 4 {
+	if len(p) < len(y.Line) {
 		copy(p, y.Line[:len(p)])
 		return len(p), nil
 	}
