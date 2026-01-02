@@ -17,3 +17,8 @@ current idea:
 - create a subdirectory named with the job hash, and a single file inside with a sanitised version
   of the command+input. The MTIME of this file is used to determine when it last succeeded/failed
 
+* use sqlite to store (most of) the btree when defering retries, to avoid unbounded memory usage.
+can't use bigset as its structure is not designed for sorting. Make something similar which allows inserts and popping of the minimum value.
+Could retain a limited number of items in memory for optimisation purposes, but it shouldn't be necessary; the additional time taken to
+retrieve the next item to run will be negligible compared to the jobs' execution times. Additionally, the channel will usually have one job
+waiting for collection anyway, so there will only be any delay when there is a burst of new jobs being created

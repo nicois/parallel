@@ -37,8 +37,8 @@ Application Options:
 preparation:
       --csv                     interpret STDIN as a CSV
       --cache-location=         path (or S3 URI) to record successes and failures
-      --debounce-successes=     re-run successful jobs outside the debounce period, even if they would normally be skipped
       --debounce-failures=      re-run failed jobs outside the debounce period, even if they would normally be skipped
+      --debounce-successes=     re-run successful jobs outside the debounce period, even if they would normally be skipped
       --defer-delay=            when deferring reruns, wait some time before beginning processing
       --defer-reruns            give priority to jobs which have not previously been run
       --json-line               interpret STDIN as JSON objects, one per line
@@ -54,6 +54,8 @@ execution:
       --input=                  send the input string (plus newline) forever as STDIN to each job
       --rate-limit=             prevent jobs starting more than this often
       --rate-limit-bucket-size= allow a burst of up to this many jobs before enforcing the rate limit
+      --show-stdout             send a copy of each job's STDOUT to the console
+      --show-stderr             send a copy of each job's STDERR to the console
       --timeout=                cancel each job after this much time
 ```
 

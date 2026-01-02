@@ -1,10 +1,12 @@
 package parallel
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -40,6 +42,8 @@ type ExecutionOpts struct {
 	Input               *string        `long:"input" description:"send the input string (plus newline) forever as STDIN to each job"`
 	RateLimit           *time.Duration `long:"rate-limit" description:"prevent jobs starting more than this often"`
 	RateLimitBucketSize int            `long:"rate-limit-bucket-size" description:"allow a burst of up to this many jobs before enforcing the rate limit"`
+	ShowStdout          bool           `long:"show-stdout" description:"send a copy of each job's STDOUT to the console"`
+	ShowStderr          bool           `long:"show-stderr" description:"send a copy of each job's STDERR to the console"`
 	Timeout             *Duration      `long:"timeout" description:"cancel each job after this much time"`
 }
 type DebuggingOpts struct {
@@ -231,18 +235,31 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 		}
 		marker := Marker(command)
 
+		var buffer bytes.Buffer
+		stdoutWriters := make([]io.Writer, 0, 2)
+		stderrWriters := make([]io.Writer, 0, 2)
+		stdoutWriters = append(stdoutWriters, &buffer)
+		stderrWriters = append(stderrWriters, &buffer)
+		if opts.ShowStderr {
+			stderrWriters = append(stderrWriters, os.Stderr)
+		}
+		if opts.ShowStdout {
+			stdoutWriters = append(stdoutWriters, os.Stdout)
+		}
+		cmd.Stdout = io.MultiWriter(stdoutWriters...)
+		cmd.Stderr = io.MultiWriter(stderrWriters...)
 		stats.InProgress.Add(1)
 		stats.SubQueued()
 		var err error
-		var output []byte
 		if opts.DryRun {
 			err = Sleep(ctx, time.Second)
-			output = []byte("(dry run)")
+			buffer.Write([]byte("(dry run)"))
 		} else {
-			output, err = cmd.CombinedOutput()
+			err = cmd.Run()
 		}
 		cmd = nil
 		elapsed := time.Since(timer)
+		output := buffer.String()
 		if err == nil {
 			stats.AddSucceeded(elapsed)
 			if !opts.HideSuccesses {
