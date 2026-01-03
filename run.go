@@ -37,7 +37,7 @@ func Run(ctx context.Context, stats *Stats, interruptChannel <-chan os.Signal, o
 				break loop
 			default:
 			}
-			if stats.ClearDirty() || time.Since(lastShown) >= 2*time.Minute-time.Second {
+			if stats.ClearDirty() || time.Since(lastShown) >= 10*time.Minute-time.Second {
 				logger.Info(stats.String())
 				lastShown = time.Now()
 			}
@@ -51,7 +51,7 @@ func Run(ctx context.Context, stats *Stats, interruptChannel <-chan os.Signal, o
 		_ = SleepInLockstep(context.Background(), time.Second)
 		ticker = time.NewTicker(time.Second)
 		for {
-			if stats.ClearDirty() || time.Since(lastShown) >= 2*time.Minute-time.Second {
+			if stats.ClearDirty() || time.Since(lastShown) >= 10*time.Minute-time.Second {
 				logger.Info(stats.String())
 				lastShown = time.Now()
 			}
