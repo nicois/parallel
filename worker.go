@@ -263,7 +263,7 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 		if err == nil {
 			stats.AddSucceeded(elapsed)
 			if !opts.HideSuccesses {
-				logger.Info("Success", slog.Any("command", command), slog.String("combined output", string(output)))
+				logger.Info("Success", slog.String("elapsed", FriendlyDuration(elapsed)), slog.Any("command", command), slog.String("combined output", string(output)))
 			}
 			if !opts.DryRun {
 				if err = cache.WriteSuccess(ctx, marker, []byte(output)); err != nil {
@@ -281,7 +281,7 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 				stats.AddAborted(elapsed)
 			}
 			if !opts.HideFailures {
-				logger.Warn("Failure", slog.Any("command", command), slog.String("combined output", string(output)), slog.Any("error", err))
+				logger.Warn("Failure", slog.String("elapsed", FriendlyDuration(elapsed)), slog.Any("command", command), slog.String("combined output", string(output)), slog.Any("error", err))
 			}
 			// store the fact this failed (unless it was due to context cancellation)
 			if !opts.DryRun && realFailure {
