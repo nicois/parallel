@@ -15,6 +15,9 @@ type etc struct {
 }
 
 func FriendlyDuration(d time.Duration) string {
+	if d < 2*time.Second {
+		return fmt.Sprintf("%.0f milliseconds", d.Seconds()*1000)
+	}
 	if d < time.Minute*2 {
 		return fmt.Sprintf("%.0f seconds", d.Seconds())
 	}
