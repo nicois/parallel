@@ -66,7 +66,7 @@ func Marker(cmd RenderedCommand) string {
 	if cmd.input != "" {
 		h.Write([]byte(cmd.input))
 	}
-	return fmt.Sprintf("parallel-marker-%x", h.Sum(nil))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 type Stats struct {
