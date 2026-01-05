@@ -24,7 +24,6 @@ var (
 
 type PreparationOpts struct {
 	CSV                     bool      `long:"csv" description:"interpret STDIN as a CSV"`
-	CacheLocation           *string   `long:"cache-location" description:"path (or S3 URI) to record successes and failures"`
 	DebounceFailuresPeriod  *Duration `long:"debounce-failures" description:"re-run failed jobs outside the debounce period, even if they would normally be skipped"`
 	DebounceSuccessesPeriod *Duration `long:"debounce-successes" description:"re-run successful jobs outside the debounce period, even if they would normally be skipped"`
 	DeferDelay              *Duration `long:"defer-delay" description:"when deferring reruns, wait some time before beginning processing"`
@@ -35,24 +34,27 @@ type PreparationOpts struct {
 }
 type ExecutionOpts struct {
 	AbortOnError        bool           `long:"abort-on-error" description:"stop running (as though CTRL-C were pressed) if a job fails"`
+	CacheLocation       *string        `long:"cache-location" description:"path (or S3 URI) to record successes and failures"`
 	Concurrency         int            `long:"concurrency" description:"run this many jobs in parallel" default:"10"`
 	DryRun              bool           `long:"dry-run" description:"simulate what would be run"`
-	HideFailures        bool           `long:"hide-failures" description:"do not display a message each time a job fails"`
-	HideSuccesses       bool           `long:"hide-successes" description:"do not display a message each time a job succeeds"`
 	Input               *string        `long:"input" description:"send the input string (plus newline) forever as STDIN to each job"`
 	RateLimit           *time.Duration `long:"rate-limit" description:"prevent jobs starting more than this often"`
 	RateLimitBucketSize int            `long:"rate-limit-bucket-size" description:"allow a burst of up to this many jobs before enforcing the rate limit"`
-	ShowStdout          bool           `long:"show-stdout" description:"send a copy of each job's STDOUT to the console"`
-	ShowStderr          bool           `long:"show-stderr" description:"send a copy of each job's STDERR to the console"`
 	Timeout             *Duration      `long:"timeout" description:"cancel each job after this much time"`
 }
-type DebuggingOpts struct {
-	Debug bool `long:"debug"`
+
+type OutputOpts struct {
+	Debug         bool `long:"debug" description:"show more detailed log messages"`
+	HideFailures  bool `long:"hide-failures" description:"do not display a message each time a job fails"`
+	HideSuccesses bool `long:"hide-successes" description:"do not display a message each time a job succeeds"`
+	ShowStderr    bool `long:"show-stderr" description:"send a copy of each job's STDERR to the console"`
+	ShowStdout    bool `long:"show-stdout" description:"send a copy of each job's STDOUT to the console"`
 }
+
 type Opts struct {
 	PreparationOpts `group:"preparation"`
 	ExecutionOpts   `group:"execution"`
-	DebuggingOpts
+	OutputOpts      `group:"output"`
 }
 
 func Marker(cmd RenderedCommand) string {
