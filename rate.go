@@ -2,6 +2,7 @@ package parallel
 
 import (
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -72,6 +73,7 @@ func (e *etc) Estimate(stats *Stats) time.Duration {
 
 	// weighted mean job duration:
 	wDurationSeconds := (meanSuccess*time.Duration(pSuccess) + meanFailure*time.Duration(1-pSuccess)).Seconds()
+	logger.Debug("estimated mean", slog.Float64("weighted duration (seconds)", wDurationSeconds), slog.Float64("success", pSuccess), slog.Duration("mean success", meanSuccess), slog.Duration("mean failure", meanFailure))
 	// fudge the weighted duration if we have fewer samples than WIP. as we are biased towards the jobs which take less time
 	if wip := stats.InProgress.Load(); int(wip) > len(e.successes)+len(e.failures) {
 		wDurationSeconds *= float64(wip) / float64(len(e.successes)+len(e.failures))
@@ -79,6 +81,7 @@ func (e *etc) Estimate(stats *Stats) time.Duration {
 
 	// weighted max time
 	wMaxDuration := time.Duration((maxSuccess.Seconds()*pSuccess + maxFailure.Seconds()*(1-pSuccess)) * float64(time.Second))
+	logger.Debug("estimated max", slog.Duration("weighted maximum duration", wMaxDuration), slog.Float64("success", pSuccess), slog.Duration("maximum success", maxSuccess), slog.Duration("maximum failure", maxFailure))
 	// var qet time.Duration
 	if stats.queueEmptyTime.IsZero() {
 		// estimate queue empty time: number of queued items * weighted job run time
