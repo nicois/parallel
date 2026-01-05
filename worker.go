@@ -40,7 +40,7 @@ type ExecutionOpts struct {
 	DryRun              bool           `long:"dry-run" description:"simulate what would be run"`
 	Input               *string        `long:"input" description:"send the input string (plus newline) forever as STDIN to each job"`
 	RateLimit           *time.Duration `long:"rate-limit" description:"prevent jobs starting more than this often"`
-	RateLimitBucketSize int            `long:"rate-limit-bucket-size" description:"allow a burst of up to this many jobs before enforcing the rate limit"`
+	RateLimitBucketSize int            `long:"rate-limit-bucket-size" description:"allow a burst of up to this many jobs when enforcing the rate limit"`
 	Timeout             *Duration      `long:"timeout" description:"cancel each job after this much time"`
 }
 
