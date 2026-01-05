@@ -263,7 +263,11 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 		if err == nil {
 			stats.AddSucceeded(elapsed)
 			if !opts.HideSuccesses {
-				logger.Info("Success", slog.String("elapsed", FriendlyDuration(elapsed)), slog.Any("command", command), slog.String("combined output", string(output)))
+				if opts.ShowStdout || opts.ShowStderr {
+					logger.Info("Success", slog.String("elapsed", FriendlyDuration(elapsed)), slog.Any("command", command), slog.String("output ID", marker))
+				} else {
+					logger.Info("Success", slog.String("elapsed", FriendlyDuration(elapsed)), slog.Any("command", command), slog.String("combined output", string(output)))
+				}
 			}
 			if !opts.DryRun {
 				if err = cache.WriteSuccess(ctx, marker, []byte(output)); err != nil {
