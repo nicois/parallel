@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"io"
 	"log/slog"
+	"math/rand"
 	"os"
 	"sync"
 	"syscall"
@@ -18,7 +19,7 @@ import (
 type UnsortedCommand struct {
 	command   RenderedCommand
 	timestamp time.Time
-	index     uint64
+	index     int64
 }
 
 func Run(ctx context.Context, stats *Stats, interruptChannel <-chan os.Signal, opts Opts, cache Cache, commands <-chan RenderedCommand, limiter *rate.Limiter) error {
@@ -173,7 +174,7 @@ func PrepareAndRun(ctx context.Context, reader io.Reader, opts Opts, commandLine
 	// ingest STDIN, generating commands and updating stats
 	go func() {
 		defer close(presortedCommands)
-		var index uint64
+		var index int64
 		for args := range generator(ctx, cancelCause, reader) {
 			var mostRecentlyLastRun time.Time
 			renderedCommand, err := Render(templ, input, args)
@@ -217,7 +218,10 @@ func PrepareAndRun(ctx context.Context, reader io.Reader, opts Opts, commandLine
 				// treat all times as Zero, meaning that the original sequence is preserved in the btree, via the index
 				mostRecentlyLastRun = time.Time{}
 			}
-			index = index + 1
+			if opts.Shuffle {
+			} else {
+				index = rand.Int63()
+			}
 			select {
 			case <-ctx.Done():
 				return

@@ -30,6 +30,7 @@ type PreparationOpts struct {
 	DeferDelay              *Duration `long:"defer-delay" description:"when deferring reruns, wait some time before beginning processing"`
 	DeferReruns             bool      `long:"defer-reruns" description:"give priority to jobs which have not previously been run"`
 	JsonLine                bool      `long:"json-line" description:"interpret STDIN as JSON objects, one per line"`
+	Shuffle                 bool      `long:"shuffle" description:"disregard the order in which the jobs were given"`
 	SkipFailures            bool      `long:"skip-failures" description:"skip jobs which have already been run unsuccessfully"`
 	SkipSuccesses           bool      `long:"skip-successes" description:"skip jobs which have already been run successfully"`
 }

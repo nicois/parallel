@@ -31,32 +31,36 @@ The binary will be installed into `~/go/bin/`
 ## Usage
 
 ```
-Application Options:
-      --debug
+Usage:
+  parallel [OPTIONS]
 
 preparation:
       --csv                     interpret STDIN as a CSV
-      --cache-location=         path (or S3 URI) to record successes and failures
       --debounce-failures=      re-run failed jobs outside the debounce period, even if they would normally be skipped
       --debounce-successes=     re-run successful jobs outside the debounce period, even if they would normally be skipped
       --defer-delay=            when deferring reruns, wait some time before beginning processing
       --defer-reruns            give priority to jobs which have not previously been run
       --json-line               interpret STDIN as JSON objects, one per line
+      --shuffle                 disregard the order in which the jobs were given
       --skip-failures           skip jobs which have already been run unsuccessfully
       --skip-successes          skip jobs which have already been run successfully
 
 execution:
       --abort-on-error          stop running (as though CTRL-C were pressed) if a job fails
+      --cache-location=         path (or S3 URI) to record successes and failures
       --concurrency=            run this many jobs in parallel (default: 10)
       --dry-run                 simulate what would be run
-      --hide-failures           do not display a message each time a job fails
-      --hide-successes          do not display a message each time a job succeeds
       --input=                  send the input string (plus newline) forever as STDIN to each job
       --rate-limit=             prevent jobs starting more than this often
-      --rate-limit-bucket-size= allow a burst of up to this many jobs before enforcing the rate limit
-      --show-stdout             send a copy of each job's STDOUT to the console
-      --show-stderr             send a copy of each job's STDERR to the console
+      --rate-limit-bucket-size= allow a burst of up to this many jobs when enforcing the rate limit
       --timeout=                cancel each job after this much time
+
+output:
+      --debug                   show more detailed log messages
+      --hide-failures           do not display a message each time a job fails
+      --hide-successes          do not display a message each time a job succeeds
+      --show-stderr             send a copy of each job's STDERR to the console
+      --show-stdout             send a copy of each job's STDOUT to the console
 ```
 
 ## Examples
@@ -264,6 +268,17 @@ Dec 22 08:49:09.042 INF Success command="{command:[rm -f foo.8] input:y}" "combi
 Dec 22 08:49:09.042 INF Queued: 0; In progress: 0; Succeeded: 8; Failed: 0; Aborted: 0; Total: 8; Elapsed time: 8s
 
 ```
+
+### Shuffle / randomise
+
+Usually, if you want to run the jobs in a random order, you can pipe STDIN via `shuf` beforehand.
+However, if the source of jobs is dynamic, you might not want to wait until all jobs are generated before
+any jobs are started.
+
+`--shuffle` will disregard the order in which jobs were received, but will work as expected with respect to
+`--defer-reruns`. This means your jobs will start being processed without delay, and reruns will still be
+run only after new jobs, but the new jobs will be run in a random order. (The rerun jobs are not randomised,
+as they are selected based on the time the job was last attempted.)
 
 ### Job cancellations and timeouts
 
