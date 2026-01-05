@@ -82,7 +82,7 @@ func Run(ctx context.Context, stats *Stats, interruptChannel <-chan os.Signal, o
 			if stats.ClearDirty() {
 				logger.Info(stats.String())
 			}
-			cancel(errors.New("user-initiated shutdown"))
+			cancel(ErrUserCancelled)
 		case <-ctx.Done():
 			logger.Info("ctx cancelled, leaving without cancelling")
 			return

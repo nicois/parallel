@@ -84,11 +84,9 @@ func main() {
 	}
 	err = parallel.PrepareAndRun(ctx, reader, opts, commandLine, cache, interruptChannel)
 
-	// show exit reasons
-	if err != nil {
-		if err != parallel.ErrUserCancelled {
-			logger.Error(fmt.Sprintf("%v", err))
-		}
+	// show exit reasons, if not user-initiated
+	if err != nil && err != parallel.ErrUserCancelled {
+		logger.Error(fmt.Sprintf("%v", err))
 		os.Exit(1)
 	}
 }
