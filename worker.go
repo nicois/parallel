@@ -149,8 +149,7 @@ func (s *Stats) ClearDirty() bool {
 
 func (s *Stats) String() string {
 	etaString := ""
-	d := s.etc.Estimate(s)
-	if d > time.Second {
+	if d, err := s.etc.Estimate(s); err != nil {
 		etaString = FriendlyDuration(d)
 	}
 	var etaPart string

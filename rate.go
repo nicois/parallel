@@ -1,6 +1,7 @@
 package parallel
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -40,13 +41,16 @@ func FriendlyDuration(d time.Duration) string {
 	return fmt.Sprintf("%.1f years", d.Seconds()/3600/365.25)
 }
 
-func (e *etc) Estimate(stats *Stats) time.Duration {
+func (e *etc) Estimate(stats *Stats) (time.Duration, error) {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 	// assume concurrency is the same as the number in-progress.
 	// This is only incorrect when the queue is empty, when it doesn't matter
 	if len(e.failures)+len(e.successes) == 0 {
-		return time.Duration(0)
+		return time.Duration(0), errors.New("no sample data")
+	}
+	if stats.InProgress.Load()+stats.Queued.Load() == 0 {
+		return time.Duration(0), nil
 	}
 	pSuccess := float64(len(e.successes)) / float64(len(e.successes)+len(e.failures))
 	var meanSuccess time.Duration
@@ -90,9 +94,9 @@ func (e *etc) Estimate(stats *Stats) time.Duration {
 		if lowerLimit := time.Duration(stats.Queued.Load()) * e.minimumDuration; lowerLimit > qet {
 			qet = lowerLimit
 		}
-		return qet + wMaxDuration
+		return qet + wMaxDuration, nil
 	}
-	return wMaxDuration - time.Since(stats.queueEmptyTime)
+	return wMaxDuration - time.Since(stats.queueEmptyTime), nil
 }
 
 func NewEtc(concurrency int, minimumDuration time.Duration) *etc {
