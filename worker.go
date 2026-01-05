@@ -49,8 +49,8 @@ type OutputOpts struct {
 	Debug         bool `long:"debug" description:"show more detailed log messages"`
 	HideFailures  bool `long:"hide-failures" description:"do not display a message each time a job fails"`
 	HideSuccesses bool `long:"hide-successes" description:"do not display a message each time a job succeeds"`
-	ShowStderr    bool `long:"show-stderr" description:"send a copy of each job's STDERR to the console"`
-	ShowStdout    bool `long:"show-stdout" description:"send a copy of each job's STDOUT to the console"`
+	ShowStderr    bool `long:"show-stderr" description:"do not suppress each job's STDERR"`
+	ShowStdout    bool `long:"show-stdout" description:"do not suppress each job's STDOUT"`
 }
 
 type Opts struct {
