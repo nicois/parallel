@@ -76,7 +76,7 @@ func (e *etc) Estimate(stats *Stats) (time.Duration, error) {
 	}
 
 	// weighted mean job duration:
-	wDurationSeconds := (meanSuccess*time.Duration(pSuccess) + meanFailure*time.Duration(1-pSuccess)).Seconds()
+	wDurationSeconds := meanSuccess.Seconds()*pSuccess + meanFailure.Seconds()*(1-pSuccess)
 	logger.Debug("estimated mean", slog.Float64("weighted duration (seconds)", wDurationSeconds), slog.Float64("success", pSuccess), slog.Duration("mean success", meanSuccess), slog.Duration("mean failure", meanFailure))
 	// fudge the weighted duration if we have fewer samples than WIP. as we are biased towards the jobs which take less time
 	if wip := stats.InProgress.Load(); int(wip) > len(e.successes)+len(e.failures) {

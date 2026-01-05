@@ -150,7 +150,7 @@ func (s *Stats) ClearDirty() bool {
 
 func (s *Stats) String() string {
 	etaString := ""
-	if d, err := s.etc.Estimate(s); err != nil {
+	if d, err := s.etc.Estimate(s); err == nil {
 		etaString = FriendlyDuration(d)
 	}
 	var etaPart string
