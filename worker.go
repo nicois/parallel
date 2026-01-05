@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/klauspost/compress/zstd"
 	"golang.org/x/time/rate"
 )
 
@@ -66,7 +67,7 @@ func Marker(cmd RenderedCommand) string {
 	if cmd.input != "" {
 		h.Write([]byte(cmd.input))
 	}
-	return fmt.Sprintf("%x", h.Sum(nil))
+	return fmt.Sprintf("%x.zstd", h.Sum(nil))
 }
 
 type Stats struct {
@@ -238,10 +239,11 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 		marker := Marker(command)
 
 		var buffer bytes.Buffer
+		enc := Must(zstd.NewWriter(&buffer))
 		stdoutWriters := make([]io.Writer, 0, 2)
 		stderrWriters := make([]io.Writer, 0, 2)
-		stdoutWriters = append(stdoutWriters, &buffer)
-		stderrWriters = append(stderrWriters, &buffer)
+		stdoutWriters = append(stdoutWriters, enc)
+		stderrWriters = append(stderrWriters, enc)
 		if opts.ShowStderr {
 			stderrWriters = append(stderrWriters, os.Stderr)
 		}
@@ -258,6 +260,7 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 			buffer.Write([]byte("(dry run)"))
 		} else {
 			err = cmd.Run()
+			Must0(enc.Close())
 		}
 		cmd = nil
 		elapsed := time.Since(timer)
@@ -265,11 +268,7 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 		if err == nil {
 			stats.AddSucceeded(elapsed)
 			if !opts.HideSuccesses {
-				if opts.ShowStdout || opts.ShowStderr {
-					logger.Info("Success", slog.String("elapsed", FriendlyDuration(elapsed)), slog.Any("command", command), slog.String("output ID", marker))
-				} else {
-					logger.Info("Success", slog.String("elapsed", FriendlyDuration(elapsed)), slog.Any("command", command), slog.String("combined output", string(output)))
-				}
+				logger.Info("Success", slog.String("elapsed", FriendlyDuration(elapsed)), slog.Any("command", command), slog.String("output ID", marker))
 			}
 			if !opts.DryRun {
 				if err = cache.WriteSuccess(ctx, marker, []byte(output)); err != nil {
@@ -287,7 +286,7 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 				stats.AddAborted(elapsed)
 			}
 			if !opts.HideFailures {
-				logger.Warn("Failure", slog.String("elapsed", FriendlyDuration(elapsed)), slog.Any("command", command), slog.String("combined output", string(output)), slog.Any("error", err))
+				logger.Warn("Failure", slog.String("elapsed", FriendlyDuration(elapsed)), slog.Any("command", command), slog.String("output ID", marker), slog.Any("error", err))
 			}
 			// store the fact this failed (unless it was due to context cancellation)
 			if !opts.DryRun && realFailure {

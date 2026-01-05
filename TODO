@@ -22,3 +22,8 @@ can't use bigset as its structure is not designed for sorting. Make something si
 Could retain a limited number of items in memory for optimisation purposes, but it shouldn't be necessary; the additional time taken to
 retrieve the next item to run will be negligible compared to the jobs' execution times. Additionally, the channel will usually have one job
 waiting for collection anyway, so there will only be any delay when there is a burst of new jobs being created
+
+* make zstd into an option.
+this requires modifying the marker checkers to ignore suffixes, so that .zstd can be present or absent, and the marker is still found.
+This will add some complications if people want to grep or otherwise process these marker files, so even though zstd is a little more
+painful to use in some situations, it may be better to simply always compress, to maintain uniformity

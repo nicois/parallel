@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.94.0
 	github.com/google/btree v1.1.3
 	github.com/jessevdk/go-flags v1.6.1
+	github.com/klauspost/compress v1.18.2
 	github.com/lmittmann/tint v1.1.2
 	github.com/nicois/bigset v0.0.0-20251220071913-937d42d5f24e
 	golang.org/x/time v0.14.0
