@@ -108,5 +108,5 @@ func (e *etc) AddSuccess(d time.Duration) {
 func (e *etc) AddFailure(d time.Duration) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
-	e.successes = append(e.failures, d)
+	e.failures = append(e.failures, d)
 }
