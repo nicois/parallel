@@ -1,4 +1,4 @@
-package parallel
+package dispatch
 
 type Yes struct {
 	Line []byte

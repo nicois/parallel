@@ -1,4 +1,4 @@
-module github.com/nicois/parallel
+module github.com/nicois/dispatch
 
 go 1.25.0
 

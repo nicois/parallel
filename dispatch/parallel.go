@@ -15,14 +15,14 @@ import (
 
 	"github.com/jessevdk/go-flags"
 	"github.com/lmittmann/tint"
-	"github.com/nicois/parallel"
+	"github.com/nicois/dispatch"
 )
 
 var logger *slog.Logger
 
 func main() {
 	// collect command-line options
-	var opts parallel.Opts
+	var opts dispatch.Opts
 	commandLine, err := flags.Parse(&opts)
 	if err != nil {
 		os.Exit(1)
@@ -39,7 +39,7 @@ func main() {
 	}
 	handler = tint.NewHandler(os.Stdout, &handlerOptions)
 	logger = slog.New(handler)
-	parallel.SetLogger(logger)
+	dispatch.SetLogger(logger)
 
 	// listen for signals
 	// to support escalation, do not simply use NotifyContext
@@ -58,34 +58,34 @@ func main() {
 
 	// prepare for processing STDIN
 	reader := bufio.NewReader(os.Stdin)
-	var cache parallel.Cache
+	var cache dispatch.Cache
 	ctx := context.Background()
 	if opts.CacheLocation == nil {
-		cache = parallel.NewFileCache(filepath.Join(parallel.Must(os.UserHomeDir()), ".cache", "parallel"))
+		cache = dispatch.NewFileCache(filepath.Join(dispatch.Must(os.UserHomeDir()), ".cache", "dispatch"))
 	} else if strings.HasPrefix(*opts.CacheLocation, "s3://") {
-		cache, err = parallel.NewS3Cache(ctx, *opts.CacheLocation)
+		cache, err = dispatch.NewS3Cache(ctx, *opts.CacheLocation)
 		if err != nil {
 			logger.Error("cannot initialise S3 cache", slog.Any("error", err))
 			os.Exit(1)
 		}
-		if expiry := parallel.GetS3ExpiryTime(); expiry != nil {
+		if expiry := dispatch.GetS3ExpiryTime(); expiry != nil {
 			safetyMargin := expiry.Add(-5 * time.Minute)
 			if safetyMargin.Before(time.Now()) {
-				logger.Error("too close to AWS token expiration", slog.Time("shutdown time", safetyMargin), slog.Time("token expiry time", *expiry), slog.String("duration until safety margin is reached", parallel.FriendlyDuration(time.Until(safetyMargin))))
+				logger.Error("too close to AWS token expiration", slog.Time("shutdown time", safetyMargin), slog.Time("token expiry time", *expiry), slog.String("duration until safety margin is reached", dispatch.FriendlyDuration(time.Until(safetyMargin))))
 				os.Exit(1)
 			}
-			logger.Info("shutting down before the AWS token expires", slog.Time("shutdown time", safetyMargin), slog.Time("token expiry time", *expiry), slog.String("duration until safety margin is reached", parallel.FriendlyDuration(time.Until(safetyMargin))))
+			logger.Info("shutting down before the AWS token expires", slog.Time("shutdown time", safetyMargin), slog.Time("token expiry time", *expiry), slog.String("duration until safety margin is reached", dispatch.FriendlyDuration(time.Until(safetyMargin))))
 			var dCancel context.CancelFunc
 			ctx, dCancel = context.WithDeadlineCause(ctx, *expiry, errors.New("AWS token will expire soon"))
 			defer dCancel()
 		}
 	} else {
-		cache = parallel.NewFileCache(*opts.CacheLocation)
+		cache = dispatch.NewFileCache(*opts.CacheLocation)
 	}
-	err = parallel.PrepareAndRun(ctx, reader, opts, commandLine, cache, interruptChannel)
+	err = dispatch.PrepareAndRun(ctx, reader, opts, commandLine, cache, interruptChannel)
 
 	// show exit reasons, if not user-initiated
-	if err != nil && err != parallel.ErrUserCancelled {
+	if err != nil && err != dispatch.ErrUserCancelled {
 		logger.Error(fmt.Sprintf("%v", err))
 		os.Exit(1)
 	}

@@ -1,7 +1,7 @@
 //go:build windows
 // +build windows
 
-package parallel
+package dispatch
 
 import (
 	"os/exec" // Or use a dedicated library for process management on Windows

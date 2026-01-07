@@ -1,4 +1,4 @@
-package parallel_test
+package dispatch_test
 
 import "testing"
 

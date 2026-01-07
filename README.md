@@ -1,12 +1,10 @@
-# Parallel
+# Dispatch
 
-Run multiple variations of a command in parallel.
-
-While GNU parallel is optimised to run as part of a pipeline of commands, this tool
-is optimised for interactive use - for example, when operating on a large number of cloud objects.
+Run multiple variations of a command, controlling concurrency, retries, etc.
 
 ## Features
 
+- run multiple jobs concurrently
 - captures STDOUT and STDERR of each job separately, for both successful and unsuccessful jobs
 - allows job arguments to be described in a variety of formats (one per line, JSON per line, or CSV)
 - sensible console status messages providing a progress summary
@@ -20,10 +18,12 @@ Optionally:
 - inject STDIN to each job
 - use S3(-compatible) backend to store state
 
+... and more!
+
 ## Installation
 
 ```bash
-go install github.com/nicois/parallel/parallel@latest
+go install github.com/nicois/dispatch/dispatch@latest
 ```
 
 The binary will be installed into `~/go/bin/`
@@ -32,7 +32,7 @@ The binary will be installed into `~/go/bin/`
 
 ```
 Usage:
-  parallel [OPTIONS]
+  dispatch [OPTIONS]
 
 preparation:
       --csv                     interpret STDIN as a CSV
@@ -48,7 +48,7 @@ preparation:
 execution:
       --abort-on-error          stop running (as though CTRL-C were pressed) if a job fails
       --cache-location=         path (or S3 URI) to record successes and failures
-      --concurrency=            run this many jobs in parallel (default: 10)
+      --concurrency=            run this many jobs in dispatch (default: 10)
       --dry-run                 simulate what would be run
       --input=                  send the input string (plus newline) forever as STDIN to each job
       --rate-limit=             prevent jobs starting more than this often
@@ -71,17 +71,17 @@ Run three variations of `echo`, substituting `{{.value}}` with each input line i
 
 ```bash
 $ echo -e 'one\ntwo\nthree' \
-    | parallel -- echo {{.value}}
+    | dispatch -- echo {{.value}}
 Dec 22 08:09:29.670 INF Success command="{command:[echo three] input:}" "combined output"="three\n"
 Dec 22 08:09:29.670 INF Success command="{command:[echo two] input:}" "combined output"="two\n"
 Dec 22 08:09:29.670 INF Success command="{command:[echo one] input:}" "combined output"="one\n"
 Dec 22 08:09:29.670 INF Queued: 0; In progress: 0; Succeeded: 3; Failed: 0; Aborted: 0; Total: 3; Elapsed time: 0s
 ```
 
-In fact, if `parallel` is run without supplying a command, it does the same thing:
+In fact, if `dispatch` is run without supplying a command, it does the same thing:
 
 ```bash
-$ echo -e 'one\ntwo\nthree' | parallel
+$ echo -e 'one\ntwo\nthree' | dispatch
 Dec 22 08:10:00.810 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
 Dec 22 08:10:00.914 INF Success command="{command:[echo value is two] input:}" "combined output"="value is two\n"
 Dec 22 08:10:00.914 INF Success command="{command:[echo value is one] input:}" "combined output"="value is one\n"
@@ -95,7 +95,7 @@ Parse each input line as a JSON object
 
 ```bash
 $ echo -e '{"animal": "cat", "name": "Scarface Claw"}\n{"animal": "dog", "name": "Bitzer Maloney"}' \
-    | parallel --json-line -- echo the {{.animal}} is called {{.name}}
+    | dispatch --json-line -- echo the {{.animal}} is called {{.name}}
 Dec 22 08:10:19.143 INF Success command="{command:[echo the cat is called Scarface Claw] input:}" "combined output"="the cat is called Scarface Claw\n"
 Dec 22 08:10:19.143 INF Success command="{command:[echo the dog is called Bitzer Maloney] input:}" "combined output"="the dog is called Bitzer Maloney\n"
 Dec 22 08:10:19.144 INF Queued: 0; In progress: 0; Succeeded: 2; Failed: 0; Aborted: 0; Total: 2; Elapsed time: 0s
@@ -105,7 +105,7 @@ Dec 22 08:10:19.144 INF Queued: 0; In progress: 0; Succeeded: 2; Failed: 0; Abor
 
 ```bash
 $ echo -e 'animal,name\ncat,Scarface Claw\ndog,Bitzer Maloney' \
-    | parallel --csv -- echo the {{.animal}} is called {{.name}}
+    | dispatch --csv -- echo the {{.animal}} is called {{.name}}
 Dec 22 08:10:41.909 INF Success command="{command:[echo the cat is called Scarface Claw] input:}" "combined output"="the cat is called Scarface Claw\n"
 Dec 22 08:10:41.909 INF Success command="{command:[echo the dog is called Bitzer Maloney] input:}" "combined output"="the dog is called Bitzer Maloney\n"
 Dec 22 08:10:41.909 INF Queued: 0; In progress: 0; Succeeded: 2; Failed: 0; Aborted: 0; Total: 2; Elapsed time: 0s
@@ -120,7 +120,7 @@ Duplicate status messages, where nothing has changed, will be suppressed for up 
 
 ```bash
 $ seq 1 10 \
-    | parallel --concurrency 4 -- bash -c 'echo {{.value}} ; sleep 4'
+    | dispatch --concurrency 4 -- bash -c 'echo {{.value}} ; sleep 4'
 Dec 22 08:12:07.262 INF Success command="{command:[bash -c echo 2 ; sleep 4] input:}" "combined output"="2\n"
 Dec 22 08:12:07.262 INF Success command="{command:[bash -c echo 3 ; sleep 4] input:}" "combined output"="3\n"
 Dec 22 08:12:07.262 INF Success command="{command:[bash -c echo 1 ; sleep 4] input:}" "combined output"="1\n"
@@ -140,14 +140,14 @@ Dec 22 08:12:15.272 INF Queued: 0; In progress: 0; Succeeded: 10; Failed: 0; Abo
 If a job has already been attempted, and should not be re-attempted, use `--skip-successes` and/or `--skip-failures` as applicable:
 
 ```bash
-$ seq 2 | parallel --skip-successes
+$ seq 2 | dispatch --skip-successes
 Dec 22 08:12:48.198 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
 Dec 22 08:12:48.301 INF Success command="{command:[echo value is 1] input:}" "combined output"="value is 1\n"
 Dec 22 08:12:48.301 INF Success command="{command:[echo value is 2] input:}" "combined output"="value is 2\n"
 Dec 22 08:12:48.301 INF Queued: 0; In progress: 0; Succeeded: 2; Failed: 0; Aborted: 0; Total: 2; Elapsed time: 0s
 
 
-$ seq 5 | parallel --skip-successes
+$ seq 5 | dispatch --skip-successes
 Dec 22 08:12:53.395 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
 Dec 22 08:12:53.498 INF Success command="{command:[echo value is 3] input:}" "combined output"="value is 3\n"
 Dec 22 08:12:53.498 INF Success command="{command:[echo value is 4] input:}" "combined output"="value is 4\n"
@@ -165,7 +165,7 @@ Be aware that this period is assessed when the STDIN record is parsed, not when 
 Below, 2 jobs are run, then 3 more 10 seconds later. With a debounce of 10s, this means the third execution skips the 3 recent jobs:
 
 ```bash
-$ seq 2 | parallel --skip-successes ; sleep 10; seq 5 | parallel --skip-successes ; seq 5 | parallel --skip-successes --debounce-successes 10s
+$ seq 2 | dispatch --skip-successes ; sleep 10; seq 5 | dispatch --skip-successes ; seq 5 | dispatch --skip-successes --debounce-successes 10s
 Dec 22 08:15:19.995 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
 Dec 22 08:15:20.000 INF Queued: 2; In progress: 0; Succeeded: 0; Failed: 0; Aborted: 0; Total: 2; Elapsed time: 0s
 Dec 22 08:15:20.099 INF Success command="{command:[echo value is 2] input:}" "combined output"="value is 2\n"
@@ -193,7 +193,7 @@ Where multiple jobs are reruns, priority is given to least recently-run jobs.
 Where jobs have never been run before, the order provided in STDIN is respected.
 
 ```bash
-$ seq 5 | parallel --concurrency=5 ; seq 10 | parallel --defer-reruns --concurrency=5
+$ seq 5 | dispatch --concurrency=5 ; seq 10 | dispatch --defer-reruns --concurrency=5
 Dec 22 08:42:30.726 INF no command was provided, so just echoing the input commandline="[echo value is {{.value}}]"
 Dec 22 08:42:30.727 INF Success command="{command:[echo value is 2] input:}" "combined output"="value is 2\n"
 Dec 22 08:42:30.727 INF Success command="{command:[echo value is 1] input:}" "combined output"="value is 1\n"
@@ -227,7 +227,7 @@ If you want a less noisy output, you can suppress success and/or failure message
 the filesystem as normal:
 
 ```bash
-$ seq 1 254 | parallel --hide-failures --concurrency 100 --debounce 10s --timeout 10s -- nc -vz 192.168.4.{{.value}} 443
+$ seq 1 254 | dispatch --hide-failures --concurrency 100 --debounce 10s --timeout 10s -- nc -vz 192.168.4.{{.value}} 443
 Dec 22 08:47:59.126 INF Success command="{command:[nc -vz 192.168.4.53 443] input:}" "combined output"="Ncat: Version 7.92 ( https://nmap.org/ncat )\nNcat: Connected to 192.168.4.53:443.\nNcat: 0 bytes sent, 0 bytes received in 0.06 seconds.\n"
 Dec 22 08:48:00.000 INF Queued: 144; In progress: 100; Succeeded: 1; Failed: 9; Aborted: 0; Total: 254; Estimated time remaining: 88 seconds
 Dec 22 08:48:05.378 INF Success command="{command:[nc -vz 192.168.4.222 443] input:}" "combined output"="Ncat: Version 7.92 ( https://nmap.org/ncat )\nNcat: Connected to 192.168.4.222:443.\nNcat: 0 bytes sent, 0 bytes received in 0.09 seconds.\n"
@@ -239,7 +239,7 @@ Dec 22 08:48:09.429 INF Queued: 0; In progress: 0; Succeeded: 2; Failed: 252; Ab
 Sometimes, despite wanting to run jobs concurrently, you want to place a limit on the maximum rate jobs can be started at. For example, you might want to run 4 jobs at a time, but wait 2 seconds between them:
 
 ```bash
-parallel --rate-limit 2s --concurrency 4
+dispatch --rate-limit 2s --concurrency 4
 ```
 
 If bursting is acceptable, `--rate-limit-bucket-size` allows this.
@@ -247,7 +247,7 @@ If bursting is acceptable, `--rate-limit-bucket-size` allows this.
 If you want to issue some API commands, ensuring no more than 1 is started per second, with a burst of 3 (but allowing 10 to run concurrently):
 
 ```bash
-parallel --rate-limit 1s --rate-limit-bucket-size 3
+dispatch --rate-limit 1s --rate-limit-bucket-size 3
 ```
 
 ### Dry-run
@@ -256,7 +256,7 @@ Want to ensure the right command will be run with the correct inputs? `--dry-run
 An implicit 1 second sleep will be substituted for the actual execution of each command:
 
 ```bash
-$ seq 8 | parallel --dry-run --debounce 5s --concurrency 1 --input y -- rm -f foo.{{.value}}
+$ seq 8 | dispatch --dry-run --debounce 5s --concurrency 1 --input y -- rm -f foo.{{.value}}
 Dec 22 08:49:02.035 INF Success command="{command:[rm -f foo.1] input:y}" "combined output"="(dry run)"
 Dec 22 08:49:03.036 INF Success command="{command:[rm -f foo.2] input:y}" "combined output"="(dry run)"
 Dec 22 08:49:04.037 INF Success command="{command:[rm -f foo.3] input:y}" "combined output"="(dry run)"
@@ -286,7 +286,7 @@ Defining a timeout will cause jobs to be terminated if it is reached:
 
 ```bash
 $ seq 1 7 \
-    | parallel --concurrency 2 --timeout 5s -- bash -c 'echo {{.value}} ; sleep {{.value}}'
+    | dispatch --concurrency 2 --timeout 5s -- bash -c 'echo {{.value}} ; sleep {{.value}}'
 Dec 22 08:50:10.000 INF Queued: 5; In progress: 2; Succeeded: 0; Failed: 0; Aborted: 0; Total: 7; Elapsed time: 1s
 Dec 22 08:50:10.059 INF Success command="{command:[bash -c echo 1 ; sleep 1] input:}" "combined output"="1\n"
 Dec 22 08:50:11.059 INF Success command="{command:[bash -c echo 2 ; sleep 2] input:}" "combined output"="2\n"
@@ -307,7 +307,7 @@ A fourth and final CTRL-C will send SIGKILL to all remaining running jobs, as we
 their process groups.
 
 ```bash
-$ seq 80 | parallel --concurrency 5 --defer-reruns  -- bash -c 'trap noop SIGTERM ; sleep {{.value}}'
+$ seq 80 | dispatch --concurrency 5 --defer-reruns  -- bash -c 'trap noop SIGTERM ; sleep {{.value}}'
 Dec 22 08:50:40.001 INF Queued: 75; In progress: 5; Succeeded: 0; Failed: 0; Aborted: 0; Total: 80; Elapsed time: 1s
 Dec 22 08:50:40.498 INF Success command="{command:[bash -c trap noop SIGTERM ; sleep 1] input:}" "combined output"=""
 ^CDec 22 08:50:40.934 WRN received cancellation signal. Waiting for current jobs to finish before exiting. Hit CTRL-C again to exit sooner
@@ -331,7 +331,7 @@ If you want to stop processing if a job fails, use `--abort-on-error`:
 
 ```bash
 $ seq 1 10 \
-    | parallel --abort-on-error --concurrency 2 --timeout 5s -- bash -c 'echo {{.value}} ; sleep {{.value}}'
+    | dispatch --abort-on-error --concurrency 2 --timeout 5s -- bash -c 'echo {{.value}} ; sleep {{.value}}'
 Dec 22 08:51:40.001 INF Queued: 8; In progress: 2; Succeeded: 0; Failed: 0; Aborted: 0; Total: 10; Elapsed time: 1s
 Dec 22 08:51:40.253 INF Success command="{command:[bash -c echo 1 ; sleep 1] input:}" "combined output"="1\n"
 Dec 22 08:51:41.253 INF Success command="{command:[bash -c echo 2 ; sleep 2] input:}" "combined output"="2\n"
@@ -351,7 +351,7 @@ Note that the input text can be the same for each job, or can be parameterised u
 
 ```bash
 $ echo -e 'animal,name,emotion\ncat,Scarface Claw,hungry' \
-    | parallel --input '{{.emotion}}' --csv -- /bin/bash -c 'read emotion; echo the {{.animal}} is called {{.name}} and is $emotion'
+    | dispatch --input '{{.emotion}}' --csv -- /bin/bash -c 'read emotion; echo the {{.animal}} is called {{.name}} and is $emotion'
 Dec 22 08:52:17.013 INF Success command="{command:[/bin/bash -c read emotion; echo the cat is called Scarface Claw and is $emotion] input:hungry}" "combined output"="the cat is called Scarface Claw and is hungry\n"
 Dec 22 08:52:17.014 INF Queued: 0; In progress: 0; Succeeded: 1; Failed: 0; Aborted: 0; Total: 1; Elapsed time: 0s
 
@@ -359,7 +359,7 @@ Dec 22 08:52:17.014 INF Queued: 0; In progress: 0; Succeeded: 1; Failed: 0; Abor
 
 ### Caching results
 
-By default, `~/.cache/parallel` is used to store the STDOUT/STDERR of each job, along with whether it succeeded.
+By default, `~/.cache/dispatch` is used to store the STDOUT/STDERR of each job, along with whether it succeeded.
 An alternative location can be provided using `--cache-location`.
 
 #### S3 caching

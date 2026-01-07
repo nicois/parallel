@@ -1,7 +1,7 @@
 //go:build !windows
 // +build !windows
 
-package parallel
+package dispatch
 
 import (
 	"os/exec"
