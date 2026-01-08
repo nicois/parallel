@@ -252,8 +252,10 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 		}
 		cmd.Stdout = io.MultiWriter(stdoutWriters...)
 		cmd.Stderr = io.MultiWriter(stderrWriters...)
-		stats.InProgress.Add(1)
-		stats.SubQueued()
+		if stats != nil {
+			stats.InProgress.Add(1)
+			stats.SubQueued()
+		}
 		var err error
 		if opts.DryRun {
 			err = Sleep(ctx, time.Second)
@@ -280,10 +282,14 @@ func Worker(ctx context.Context, opts Opts, signaller <-chan os.Signal, cancel c
 			// or because the job actually failed? Remember that a timeout counts as a real failure
 			realFailure := subCtx.Err() == nil || errors.Is(subCtx.Err(), context.DeadlineExceeded)
 			if realFailure {
-				stats.AddFailed(elapsed)
+				if stats != nil {
+					stats.AddFailed(elapsed)
+				}
 			} else {
 				logger.Warn("job was aborted due to context cancellation", slog.Any("command", command))
-				stats.AddAborted(elapsed)
+				if stats != nil {
+					stats.AddAborted(elapsed)
+				}
 			}
 			if !opts.HideFailures {
 				logger.Warn("Failure", slog.String("elapsed", FriendlyDuration(elapsed)), slog.Any("command", command), slog.String("output ID", marker), slog.Any("error", err))

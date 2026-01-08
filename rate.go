@@ -70,7 +70,9 @@ func (e *etc) Estimate(stats *Stats) (time.Duration, error) {
 		meanFailure = meanFailure + failure
 	}
 	// convert from total duration to average duration
-	meanSuccess = meanSuccess / time.Duration(len(e.successes))
+	if len(e.successes) > 0 {
+		meanSuccess = meanSuccess / time.Duration(len(e.successes))
+	}
 	if len(e.failures) > 0 {
 		meanFailure = meanFailure / time.Duration(len(e.failures))
 	}

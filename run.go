@@ -22,43 +22,52 @@ type UnsortedCommand struct {
 	index     int64
 }
 
+// Run will execute the jobs received via the `commands` channel,
+// respecting the provided context and the rate limiter.
+// Behaviour such as the level of concurrency is controlled via `opts`.
+// A pre-configured cache must also be provided, used to record output logs.
+// Statistics will also be updated continuously.
 func Run(ctx context.Context, stats *Stats, interruptChannel <-chan os.Signal, opts Opts, cache Cache, commands <-chan RenderedCommand, limiter *rate.Limiter) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 
-	// Show the current status, every 10ish seconds
-	go func() {
-		_ = SleepInLockstep(ctx, 10*time.Second)
-		ticker := time.NewTicker(10 * time.Second)
-		var lastShown time.Time
-	loop:
-		for {
-			select {
-			case <-ctx.Done():
-				break loop
-			default:
+	if stats == nil {
+		logger.Warn("no statistics will be generated")
+	} else {
+		// Show the current status, every 10ish seconds
+		go func() {
+			_ = SleepInLockstep(ctx, 10*time.Second)
+			ticker := time.NewTicker(10 * time.Second)
+			var lastShown time.Time
+		loop:
+			for {
+				select {
+				case <-ctx.Done():
+					break loop
+				default:
+				}
+				if stats.ClearDirty() || time.Since(lastShown) >= 10*time.Minute-time.Second {
+					logger.Info(stats.String())
+					lastShown = time.Now()
+				}
+				select {
+				case <-ctx.Done():
+					break loop
+				case <-ticker.C:
+				}
 			}
-			if stats.ClearDirty() || time.Since(lastShown) >= 10*time.Minute-time.Second {
-				logger.Info(stats.String())
-				lastShown = time.Now()
+			ticker.Stop()
+			_ = SleepInLockstep(context.Background(), time.Second)
+			ticker = time.NewTicker(time.Second)
+			for {
+				if stats.ClearDirty() || time.Since(lastShown) >= 10*time.Minute-time.Second {
+					logger.Info(stats.String())
+					lastShown = time.Now()
+				}
+				<-ticker.C
 			}
-			select {
-			case <-ctx.Done():
-				break loop
-			case <-ticker.C:
-			}
-		}
-		ticker.Stop()
-		_ = SleepInLockstep(context.Background(), time.Second)
-		ticker = time.NewTicker(time.Second)
-		for {
-			if stats.ClearDirty() || time.Since(lastShown) >= 10*time.Minute-time.Second {
-				logger.Info(stats.String())
-				lastShown = time.Now()
-			}
-			<-ticker.C
-		}
-	}()
+		}()
+	}
 
 	signallers := make([]chan os.Signal, 0, opts.Concurrency)
 	// spawn the workers
@@ -77,12 +86,14 @@ func Run(ctx context.Context, stats *Stats, interruptChannel <-chan os.Signal, o
 	go func() {
 		select {
 		case <-interruptChannel:
-			stats.Total.Add(-1 * stats.ZeroQueued())
-			stats.SetDirty()
-			logger.Warn("received cancellation signal. Waiting for current jobs to finish before exiting. Hit CTRL-C again to exit sooner")
-			if stats.ClearDirty() {
-				logger.Info(stats.String())
+			if stats != nil {
+				stats.Total.Add(-1 * stats.ZeroQueued())
+				stats.SetDirty()
+				if stats.ClearDirty() {
+					logger.Info(stats.String())
+				}
 			}
+			logger.Warn("received cancellation signal. Waiting for current jobs to finish before exiting. Hit CTRL-C again to exit sooner")
 			cancel(ErrUserCancelled)
 		case <-ctx.Done():
 			logger.Info("ctx cancelled, leaving without cancelling")
